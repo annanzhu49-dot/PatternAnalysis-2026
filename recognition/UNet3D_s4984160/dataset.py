@@ -30,8 +30,24 @@ def get_data_pairs(root=DATA_ROOT):
         pairs.append((patient_id, mri_path, mask_path))
 
     return pairs
+'''
+[
+    (
+        "B006",
+        "B006_Week0_LFOV.nii.gz",
+        "B006_Week0_SEMANTIC.nii.gz"
+    ),
+    (
+        "B006",
+        "B006_Week1_LFOV.nii.gz",
+        "B006_Week1_SEMANTIC.nii.gz"
+    )
+]
+'''
 
-
+# 211 data 38 patients 211 scans were grouped.
+# independent from each other to prevent information from the same patient from leaking.
+# seed=42 ensures the patient grouping is consistent across repeated runs.
 def split_by_patient(pairs, seed=42):
     """Split patients without leaking scans across datasets."""
     patients = sorted({p[0] for p in pairs})
@@ -49,9 +65,13 @@ def split_by_patient(pairs, seed=42):
 
     return train, val, test
 
-
+# 归一化 MRI	  mean()、std()	        调整灰度值范围，让训练更稳定
+# 转换 Tensor  torch.from_numpy()	让 PyTorch 能够处理数据
+# 降采样	      F.interpolate()	    统一尺寸，降低 GPU 内存需求
+# MRI 是灰度值，需要归一化；Mask 是类别标签，不需要归一化。
+# 降采样时，MRI 用 trilinear，Mask 用 nearest，防止破坏标签编号。
 class HipMRIDataset(Dataset):
-    def __init__(self, pairs, target_shape=(128, 128, 64)):
+    def __init__(self, pairs, target_shape=(64, 128, 128)):
         self.pairs = pairs
         self.target_shape = target_shape
 
@@ -74,17 +94,24 @@ class HipMRIDataset(Dataset):
         mri = np.asarray(mri_img.dataobj, dtype=np.float32)
         mask = np.asarray(mask_img.dataobj).astype(np.int64)
 
-        # Normalize MRI using nonzero voxels
+        # Normalize MRI using nonzero voxels 归一化
         foreground = mri != 0
 
         if foreground.any():
             mean = mri[foreground].mean()
             std = mri[foreground].std()
-            mri = (mri - mean) / max(float(std), 1e-6)
 
-        # Convert to tensors: [C, D, H, W]
-        mri = torch.from_numpy(mri.copy()).unsqueeze(0).unsqueeze(0)
-        mask = torch.from_numpy(mask.copy()).unsqueeze(0).unsqueeze(0)
+            mri[foreground] = (
+                    (mri[foreground] - mean) / max(float(std), 1e-6)
+            )
+
+        # NIfTI (X, Y, Z) -> PyTorch (D, H, W)
+        mri = np.transpose(mri, (2, 0, 1)).copy()
+        mask = np.transpose(mask, (2, 0, 1)).copy()
+
+        # Add batch and channel dimensions
+        mri = torch.from_numpy(mri).unsqueeze(0).unsqueeze(0)
+        mask = torch.from_numpy(mask).unsqueeze(0).unsqueeze(0)
 
         # Downsample MRI with trilinear interpolation
         mri = F.interpolate(

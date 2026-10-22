@@ -65,6 +65,86 @@ def split_by_patient(pairs, seed=42):
 
     return train, val, test
 
+
+def audit_data(pairs):
+    """Audit all MRI-mask pairs before training."""
+    from collections import Counter
+
+    shape_counts = Counter()
+    all_labels = set()
+    label_voxel_counts = Counter()
+    affine_mismatches = []
+    shape_mismatches = []
+    unusual_shapes = []
+    invalid_labels = []
+    unreadable_files = []
+
+    expected_shape = (256, 256, 128)
+    allowed_labels = set(range(6))
+
+    for index, (patient_id, mri_path, mask_path) in enumerate(pairs, 1):
+        try:
+            mri_img = nib.load(str(mri_path))
+            mask_img = nib.load(str(mask_path))
+
+            shape_counts[mri_img.shape] += 1
+
+            if mri_img.shape != expected_shape:
+                unusual_shapes.append(mri_path.name)
+
+            if mri_img.shape != mask_img.shape:
+                shape_mismatches.append(mri_path.name)
+
+            if not np.allclose(mri_img.affine, mask_img.affine):
+                affine_mismatches.append(mri_path.name)
+
+            # Inspect actual mask values
+            mask_data = np.asanyarray(mask_img.dataobj)
+            labels, counts = np.unique(mask_data, return_counts=True)
+
+            for label, count in zip(labels, counts):
+                value = float(label)
+                all_labels.add(value)
+                label_voxel_counts[value] += int(count)
+
+                if value not in allowed_labels:
+                    invalid_labels.append((mask_path.name, value))
+
+            # Read the MRI data to detect unreadable files
+            mri_data = np.asanyarray(mri_img.dataobj)
+            if not np.isfinite(mri_data).all():
+                unreadable_files.append(
+                    (mri_path.name, "Non-finite MRI values")
+                )
+
+        except Exception as error:
+            unreadable_files.append((mri_path.name, str(error)))
+
+        if index % 25 == 0 or index == len(pairs):
+            print(f"Checked {index}/{len(pairs)} scans", flush=True)
+
+    print("\n===== DATA AUDIT RESULTS =====")
+    print("Total MRI-mask pairs:", len(pairs))
+    print("Unique patients:", len({p[0] for p in pairs}))
+    print("MRI shapes:", dict(shape_counts))
+    print("All mask labels:", sorted(all_labels))
+    print("Voxel counts per label:", dict(sorted(label_voxel_counts.items())))
+    print("Unusual shapes:", unusual_shapes)
+    print("Shape mismatches:", shape_mismatches)
+    print("Affine mismatches:", affine_mismatches)
+    print("Invalid labels:", invalid_labels)
+    print("Unreadable/invalid MRI files:", unreadable_files)
+
+    passed = not (
+        shape_mismatches
+        or affine_mismatches
+        or invalid_labels
+        or unreadable_files
+    )
+
+    print("\nAudit status:", "PASS" if passed else "REVIEW REQUIRED")
+
+
 # 归一化 MRI	  mean()、std()	        调整灰度值范围，让训练更稳定
 # 转换 Tensor  torch.from_numpy()	让 PyTorch 能够处理数据
 # 降采样	      F.interpolate()	    统一尺寸，降低 GPU 内存需求
@@ -135,6 +215,7 @@ class HipMRIDataset(Dataset):
 
 if __name__ == "__main__":
     pairs = get_data_pairs()
+    audit_data(pairs)
     train, val, test = split_by_patient(pairs)
 
     print("Total scans:", len(pairs))

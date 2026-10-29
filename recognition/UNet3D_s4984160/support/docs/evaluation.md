@@ -1,10 +1,10 @@
 # Frozen 3D U-Net evaluation
 
-Slurm job **715670** completed on 2026-10-30 with an empty error log and five saved prediction figures. Held-out test mean scan prostate Dice was **0.773216**, mean HD95 **6.4995 mm** (approximate resized-grid spacing). Original metrics, training records and figures are archived in `artifacts/final_test_3d/`. All eight synthetic checks on Rangpur and a synthetic figure layout inspection passed before submission; visual interpretation of the actual patient figures remains a separate step.
+Slurm job **715670** completed on 2026-10-30 with an empty error log and five saved prediction figures. Held-out test mean scan prostate Dice was **0.773216**, mean HD95 **6.4995 mm** (approximate resized-grid spacing). Original metrics, training records and figures are archived in `support/artifacts/final_test_3d/`. All eight synthetic checks on Rangpur and a synthetic figure layout inspection passed before submission; visual interpretation of the actual patient figures remains a separate step.
 
 Evaluate `results/refine_v2/best_model.pt`, refinement epoch 11, after 15 initial scratch epochs. Validation prostate Dice was 0.75597. This does not establish test performance.
 
-`scripts/evaluate.sbatch` uses the original resource template (comp3710 partition/account, GPU, 1.5-hour time limit, no explicit CPU/memory request). It runs one held-out evaluation, then renders the saved predictions without a second inference pass. The frozen source directory on Rangpur is `evaluation_refine_v2_final/`; its model/data helpers are copied from the actual training snapshot `baseline_refine_v2/`.
+`support/scripts/evaluate.sbatch` uses the original resource template (comp3710 partition/account, GPU, 1.5-hour time limit, no explicit CPU/memory request). It runs one held-out evaluation, then renders the saved predictions without a second inference pass. The frozen source directory on Rangpur is `evaluation_refine_v2_final/`; its model/data helpers are copied from the actual training snapshot `baseline_refine_v2/`.
 
 ## Compatibility and safeguards
 

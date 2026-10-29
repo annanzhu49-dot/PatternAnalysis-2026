@@ -12,7 +12,7 @@ import numpy as np
 import torch
 
 from dataset import HipMRIDataset, get_data_pairs, split_by_patient
-from evaluation_utils import (boundary_regions, checkpoint_sha256, class_metrics,
+from support.evaluation_utils import (boundary_regions, checkpoint_sha256, class_metrics,
                               geometry, hd95, load_model, select_examples, summarize)
 
 

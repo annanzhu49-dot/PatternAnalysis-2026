@@ -7,15 +7,15 @@ import unittest
 from unittest.mock import patch
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import nibabel as nib
 import numpy as np
 import torch
 
 import evaluate as evaluator
-from baseline_model import make_model
-from evaluation_utils import boundary_regions, class_metrics, geometry, hd95, load_model, summarize
+from support.baseline_model import make_model
+from support.evaluation_utils import boundary_regions, class_metrics, geometry, hd95, load_model, summarize
 from predict import planes_for
 
 

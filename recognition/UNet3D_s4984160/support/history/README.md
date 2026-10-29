@@ -17,8 +17,8 @@ model/data/evaluation code. Use the project-root README for the current model.
 The exact old files remain retrievable from the recorded Git commit with
 `git show COMMIT:PATH`. Current model, dataset and training math were not
 changed during folder cleanup. The refinement source is now root `train.py`;
-the scratch source is `training/scratch.py`. The relocated evaluator tests
-only add a project-root import path so discovery works from `tests/`.
+the scratch source is `support/training/scratch.py`. The relocated evaluator tests
+use a project-root import path so discovery works from `support/tests/`.
 
 Slurm `#SBATCH` directives were preserved; current scripts only changed their
 Python entry-point paths. No remote files, checkpoints or submitted cluster

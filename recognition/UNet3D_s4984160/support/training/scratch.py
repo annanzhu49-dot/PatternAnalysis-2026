@@ -11,7 +11,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
-from baseline_model import make_model
+from support.baseline_model import make_model
 from dataset import HipMRIDataset, get_data_pairs, split_by_patient
 
 

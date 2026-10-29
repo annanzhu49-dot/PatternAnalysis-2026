@@ -51,7 +51,7 @@ The actual checkpoint remains on the cluster at
 `results/refine_v2/best_model.pt`.
 
 Duplicate source folders have been consolidated into canonical root code,
-`training/scratch.py` and root `train.py`. Original submitted sources are
+`support/training/scratch.py` and root `train.py`. Original submitted sources are
 recoverable through [the provenance manifest](../../history/source_snapshots.json).
 Current Slurm scripts are under `../../scripts/`; their resource requests are
 unchanged. Earlier training code is under `../../history/`.
@@ -94,7 +94,7 @@ boundary-region counts, selection reasons and figure hashes.
 
 ## Comparison scopes
 
-The [comparison tables](../../README.md) keep this complete-volume
+The [comparison tables](../../../README.md) keep this complete-volume
 result separate from the measured shared-band overlap scores. Shared-band HD95
 and organ-confusion counts were not measured in the archived band CSV and
 remain blank. Native 2D test scores also remain blank until a frozen 2D

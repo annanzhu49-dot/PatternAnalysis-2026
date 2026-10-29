@@ -11,9 +11,9 @@ from pathlib import Path
 import statistics
 
 
-ROOT = Path(__file__).resolve().parent
-ARCHIVE = ROOT / 'artifacts/final_test_3d'
-OUTPUT = ROOT / 'comparison'
+ROOT = Path(__file__).resolve().parents[1]
+ARCHIVE = ROOT / 'support/artifacts/final_test_3d'
+OUTPUT = ROOT / 'support/comparison'
 START = '<!-- BEGIN GENERATED COMPARISON -->'
 END = '<!-- END GENERATED COMPARISON -->'
 
@@ -206,10 +206,10 @@ def main():
               'This is the native 2D task, grouped by scan. Its figures and metrics use',
               'original valid pixels (256×128 or 256×144); padding label 255 is ignored.',
               'These results are not substituted into table B without grid alignment.', '',
-              'Protocol and missing-result rules: [comparison protocol](docs/comparison_protocol.md).',
-              'Auditable tables: [comparison/metrics.json](comparison/metrics.json) and',
-              '[comparison/metrics.csv](comparison/metrics.csv). Regenerate with',
-              '`python prepare_comparison.py`; this only reads archived local records.', '']
+              'Protocol and missing-result rules: [comparison protocol](support/docs/comparison_protocol.md).',
+              'Auditable tables: [comparison/metrics.json](support/comparison/metrics.json) and',
+              '[comparison/metrics.csv](support/comparison/metrics.csv). Regenerate with',
+              '`python -m support.prepare_comparison`; this only reads archived local records.', '']
     section = '\n'.join(lines)
     readme_path = ROOT/'README.md'
     readme = readme_path.read_text(encoding='utf-8')

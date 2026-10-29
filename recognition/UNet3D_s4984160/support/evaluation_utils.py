@@ -7,7 +7,7 @@ import nibabel as nib
 import numpy as np
 import torch
 
-from baseline_model import make_model
+from support.baseline_model import make_model
 
 
 LABEL_NAMES = ['Background', 'Body', 'Bones', 'Bladder', 'Rectum', 'Prostate']

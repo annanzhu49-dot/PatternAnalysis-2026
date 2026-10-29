@@ -34,6 +34,10 @@ Outputs are `results/resource_JOBID/{summary.json,per_case_profile.csv,profile_c
 under the 2D cluster directory. Measured values should fill the report only
 after the job completes and the recorded checksums/configuration are checked.
 
+Job **717015** has now completed. The [archived measurements and direct example](../../../UNet2D_s4984160/support/artifacts/resource_717015/README.md)
+contain the checked results; the report uses the new isolated profiles. The
+earlier 3D-only timing remains in its original archive for provenance.
+
 ## 3D training curves from existing CSV
 
 `support/plot_training_curves.py` reads the 15 initial and 11 refinement epochs.

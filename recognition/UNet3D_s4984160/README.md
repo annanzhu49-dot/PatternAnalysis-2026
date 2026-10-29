@@ -109,6 +109,12 @@ D,H,W labels and metadata. GT is used for evaluation/visualization, not input
 to the network. A new output directory is required. The original cached-render
 command still works. See [prediction and resource usage](support/docs/resource_profile.md).
 
+Job **717015** verified this direct entry point on B037 Week0: Dice **0.6413**,
+HD95 **14.65 mm**, and all six classes' voxel counts match the archived test.
+This retained failure case shows undercoverage; it does not change the overall
+test Dice of 0.7732. The [direct prediction image and metadata](../UNet2D_s4984160/support/artifacts/resource_717015/README.md)
+provide the completed execution evidence.
+
 The final checkpoint remains on the cluster at `results/refine_v2/best_model.pt`;
 its SHA256 and original metrics are in
 [the result record](support/artifacts/final_test_3d/README.md). Historical early code is
@@ -186,17 +192,28 @@ They reuse the same five cases and positions, without selecting new favourable e
 
 ### E. Resource profile and confounders
 
-| Model | Parameters | Inference precision / GPU | Forward latency | Peak inference allocation |
-| --- | ---: | --- | --- | --- |
-| Standard 3D | 351,206 | BF16 / A100 40GB | 17.55 ms median/volume | 0.1364 GiB |
-| Standard 2D | 1,942,374 | FP32 / A100 40GB | Not profiled | Not profiled |
+| Model | Parameters | Precision | Forward ms/case | Prediction ms/case | Peak allocated / reserved GiB |
+| --- | ---: | --- | ---: | ---: | ---: |
+| Standard 2D | 1,942,374 | FP32 | 18.63 | 21.75 | 0.2710 / 0.3418 |
+| Standard 3D | 351,206 | FP32 | 17.05 | 18.24 | 0.1815 / 0.2402 |
+| Standard 3D | 351,206 | BF16 | 9.75 | 10.91 | 0.1246 / 0.1582 |
 
-3D latency is forward-only; the paired evaluation did not measure 2D runtime
-or memory in isolation. The models were co-resident for comparison, so total
-allocation would not be a valid isolated-model profile. Per-slice timing
-cannot be compared with 3D per-volume timing. Precision, resolution,
-normalization, width/depth, sampling and training differ. This compares the
-implemented pipelines and does not isolate a causal benefit of convolution dimension.
+Job **717015** measured all rows separately on the same **NVIDIA A100-PCIE-40GB**;
+each model started with zero other PyTorch GPU allocations. TF32 was disabled.
+Times are medians across 27 per-case medians, with three warmups and three repeats.
+2D means all 60 native slices (batch 16); 3D means the full 64×128×128 volume (batch 1).
+Forward excludes transfers; prediction includes transfers, forward, argmax and output copy.
+Both exclude disk loading, preprocessing and initial model loading. Peaks include resident
+weights and inference tensors/cache, but exclude CUDA driver/context and training memory.
+Allocated and reserved are distinct PyTorch memory measures.
+
+Use FP32 rows for the matched-precision comparison; BF16 records the 3D deployment mode.
+The earlier 3D-only timing (17.55 ms, 0.1364 GiB) remains in the original archive;
+this table uses the new isolated profiling protocol, without replacing segmentation scores.
+Coverage, resolution, normalization, model size and training differ, so these are pipeline
+costs, not an isolated causal test of convolution dimension.
+
+Raw [resource records and prediction example](../UNet2D_s4984160/support/artifacts/resource_717015/README.md).
 
 ### F. Native 2D task (all 60 unpadded slices per scan)
 
@@ -324,8 +341,10 @@ final report body, together with the original one-page feasibility review,
 the completed 2D/3D comparison, literature references and a complete subsection
 entitled `Artificial Intelligence Usage Disclosure`. The current root `train.py` is the final refinement training stage. The
 current `predict.py` now supports direct checkpoint loading/inference and
-the original cached-render mode. The GPU example is included with the
-short resource measurement job; its actual completion must be checked.
+the original cached-render mode. Job **717015** completed the direct GPU example;
+all six classes' voxel counts match the archived B037 Week0 evaluation.
+The [completed resource and prediction record](../UNet2D_s4984160/support/artifacts/resource_717015/README.md)
+contains the original timing CSV, metadata, logs and prediction image.
 A README export should
 include the actual report text and figures rather than rely solely on links.
 No final PDF export or PR creation is claimed by this documentation update.

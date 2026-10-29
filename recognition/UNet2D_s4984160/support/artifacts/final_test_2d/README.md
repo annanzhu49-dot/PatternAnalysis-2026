@@ -125,10 +125,10 @@ causal imaging trigger, because no controlled resolution/capacity/context
 ablation was performed. Preserve both frozen models and report this trade-off;
 do not tune against these test cases to make either model win.
 
-The experiment did not profile isolated 2D latency/memory. The models were
-co-resident during paired inference; total allocation would not measure one
-model. Existing 3D timings and 2D's parameter count may be reported with that
-limitation. The final course report still needs remaining report assembly,
+This paired evaluation kept both models co-resident and did not itself profile
+isolated latency/memory. The subsequent [resource job 717015](../resource_717015/README.md)
+now supplies separate-model measurements on the same GPU, without changing
+these segmentation scores. The final course report still needs report assembly,
 feasibility review, references and full AI-use disclosure.
 
 ## Files and provenance

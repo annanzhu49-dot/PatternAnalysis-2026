@@ -94,7 +94,18 @@ the ignored `results/` directory.
 
 ## Model
 
-`UNet2D(in_channels=1, num_classes=6, base_features=16)` uses four max-pooling levels, double convolutions with BatchNorm/ReLU, transposed-convolution upsampling and skip concatenations. It returns raw logits at the input spatial size; do not apply softmax before CrossEntropyLoss. The default width was reduced from the author's draft width of 64 to 16, with no architectural enhancements. The recorded GPU run used width 16, now verified in the selected checkpoint; `base_features=64` restores the original draft width. Training history and measured segmentation scores are archived in `support/artifacts/`. Isolated inference latency and memory were not profiled. Record the width in saved checkpoint configuration so evaluation reconstructs the same model.
+`UNet2D(in_channels=1, num_classes=6, base_features=16)` uses four max-pooling levels, double convolutions with BatchNorm/ReLU, transposed-convolution upsampling and skip concatenations. It returns raw logits at the input spatial size; do not apply softmax before CrossEntropyLoss. The default width was reduced from the author's draft width of 64 to 16, with no architectural enhancements. The recorded GPU run used width 16, now verified in the selected checkpoint; `base_features=64` restores the original draft width. Training history and measured segmentation scores are archived in `support/artifacts/`. Record the width in saved checkpoint configuration so evaluation reconstructs the same model.
+
+### Completed resource measurement
+
+Job **717015** measured the frozen 2D model separately from 3D on the same
+A100-PCIE-40GB. All 60 slices per case (batch 16, FP32) take **18.63 ms**
+forward-only or **21.75 ms** including transfers, argmax and output copy;
+these are medians across 27 per-case medians, each with three repeats.
+Peak allocated/reserved memory is **0.2710 / 0.3418 GiB**, including resident
+weights. Disk loading, preprocessing, model loading and training are excluded.
+See the [raw records and matched 3D measurements](support/artifacts/resource_717015/README.md)
+for protocol, limitations and the successful direct 3D prediction example.
 
 ```python
 from modules import UNet2D

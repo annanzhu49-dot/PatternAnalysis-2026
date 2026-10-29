@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE = ROOT / 'support/artifacts/final_test_3d'
 OUTPUT = ROOT / 'support/comparison'
 ARCHIVE_2D = ROOT.parent / 'UNet2D_s4984160/support/artifacts/final_test_2d'
+RESOURCE = ROOT.parent / 'UNet2D_s4984160/support/artifacts/resource_717015'
 START = '<!-- BEGIN GENERATED COMPARISON -->'
 END = '<!-- END GENERATED COMPARISON -->'
 
@@ -179,7 +180,87 @@ def load_completed_2d(reference, reference_full_rows, reference_shared_rows, ent
     return dict(summary=summary,scopes=scopes,paired=paired,patients=patient_rows,descriptive=result)
 
 
-def completed_tables(reference, full, shared, completed):
+def verified_resources(reference, full_rows):
+    """Verify whole-case aggregates and the direct prediction against raw records."""
+    profile = json.loads((RESOURCE/'summary.json').read_text())
+    paired = json.loads((ARCHIVE_2D/'summary.json').read_text())
+    if (profile['checkpoint_3d_sha256'] != reference['checkpoint_sha256'] or
+            profile['checkpoint_2d_sha256'] != paired['checkpoint_sha256']):
+        raise ValueError('Resource checkpoint mismatch')
+    if not profile['models_measured_separately'] or not profile['no_training'] or profile['tf32']:
+        raise ValueError('Unexpected resource protocol')
+    rows = read_csv(RESOURCE/'per_case_profile.csv')
+    modes = {(p['model'], p['precision']) for p in profile['profiles']}
+    if len(rows) != 81 or modes != {('standard_2d_unet','fp32'), ('standard_3d_unet','fp32'), ('standard_3d_unet','bf16')}:
+        raise ValueError('Incomplete resource profiles')
+    expected_cases = {r['case'] for r in full_rows}
+    for p in profile['profiles']:
+        group = [r for r in rows if (r['model'], r['precision']) == (p['model'], p['precision'])]
+        if len(group) != 27 or {r['case'] for r in group} != expected_cases or p['scans'] != 27:
+            raise ValueError('Resource cohort mismatch')
+        if p['non_model_allocated_bytes_before_load'] != 0:
+            raise ValueError('Unexpected resident GPU allocation')
+        expected_parameters = paired['parameters_2d'] if p['model']=='standard_2d_unet' else reference['parameters']
+        if p['parameters'] != expected_parameters:
+            raise ValueError('Parameter count mismatch')
+        for field, aggregate in [('forward_case_ms_mean', statistics.mean),
+                                 ('forward_case_ms_median', statistics.median),
+                                 ('prediction_case_ms_mean', statistics.mean),
+                                 ('prediction_case_ms_median', statistics.median),
+                                 ('peak_allocated_gib', max), ('peak_reserved_gib', max)]:
+            source = field.replace('_mean','').replace('_median','')
+            value = aggregate(float(r[source]) for r in group)
+            if not math.isclose(value, p[field], rel_tol=1e-12, abs_tol=1e-12):
+                raise ValueError(f'Resource aggregate differs: {field}')
+    demo = json.loads((RESOURCE/'predict_demo/summary.json').read_text())
+    if demo['checkpoint_sha256'] != reference['checkpoint_sha256'] or demo['precision'] != 'bf16':
+        raise ValueError('Direct prediction checkpoint/precision mismatch')
+    for metric in demo['class_metrics']:
+        original = next(r for r in full_rows if r['case']==demo['case'] and int(r['class_id'])==metric['class_id'])
+        for key in ('tp','fp','fn','gt_voxels','pred_voxels'):
+            if int(original[key]) != metric[key]:
+                raise ValueError(f'Direct prediction count differs: {key}')
+        if metric['class_id']==5 and not math.isclose(float(original['hd95_mm']), demo['prostate_hd95_mm'], abs_tol=1e-10):
+            raise ValueError('Direct prediction HD95 differs')
+    for marker in ('profile_complete.txt','predict_demo/prediction_complete.txt'):
+        if not (RESOURCE/marker).read_text().strip():
+            raise ValueError('Missing resource completion marker')
+    if (RESOURCE/'resource_717015.err').stat().st_size:
+        raise ValueError('Resource error log is not empty')
+    sources = {str(path.relative_to(RESOURCE)).replace('\\','/'): hashlib.sha256(path.read_bytes()).hexdigest()
+               for path in sorted(RESOURCE.rglob('*')) if path.is_file() and path.name!='README.md'}
+    return dict(job_id=717015, measurement=profile, direct_prediction=demo, sources_sha256=sources)
+
+
+def resource_table(resources):
+    if resources is None:
+        return ['### E. Resource profile and confounders', '',
+                'Isolated resource measurements are not archived; no values are inferred.', '']
+    profile=resources['measurement']
+    lines=['### E. Resource profile and confounders','',
+           '| Model | Parameters | Precision | Forward ms/case | Prediction ms/case | Peak allocated / reserved GiB |',
+           '| --- | ---: | --- | ---: | ---: | ---: |']
+    for p in profile['profiles']:
+        name='Standard 2D' if p['model']=='standard_2d_unet' else 'Standard 3D'
+        lines.append(f'| {name} | {p["parameters"]:,} | {p["precision"].upper()} | {p["forward_case_ms_median"]:.2f} | {p["prediction_case_ms_median"]:.2f} | {p["peak_allocated_gib"]:.4f} / {p["peak_reserved_gib"]:.4f} |')
+    lines += ['', 'Job **717015** measured all rows separately on the same **NVIDIA A100-PCIE-40GB**;',
+              'each model started with zero other PyTorch GPU allocations. TF32 was disabled.',
+              'Times are medians across 27 per-case medians, with three warmups and three repeats.',
+              '2D means all 60 native slices (batch 16); 3D means the full 64×128×128 volume (batch 1).',
+              'Forward excludes transfers; prediction includes transfers, forward, argmax and output copy.',
+              'Both exclude disk loading, preprocessing and initial model loading. Peaks include resident',
+              'weights and inference tensors/cache, but exclude CUDA driver/context and training memory.',
+              'Allocated and reserved are distinct PyTorch memory measures.','',
+              'Use FP32 rows for the matched-precision comparison; BF16 records the 3D deployment mode.',
+              'The earlier 3D-only timing (17.55 ms, 0.1364 GiB) remains in the original archive;',
+              'this table uses the new isolated profiling protocol, without replacing segmentation scores.',
+              'Coverage, resolution, normalization, model size and training differ, so these are pipeline',
+              'costs, not an isolated causal test of convolution dimension.','',
+              'Raw [resource records and prediction example](../UNet2D_s4984160/support/artifacts/resource_717015/README.md).','']
+    return lines
+
+
+def completed_tables(reference, full, shared, completed, resources):
     s=completed['summary']; scopes=completed['scopes']; d=completed['descriptive']
     a=scopes['shared_2d']['metrics'][5];b=scopes['shared_3d']['metrics'][5];n=scopes['native_2d']['metrics'][5]
     lines=['## Model comparison: complete volume and shared band','',
@@ -222,17 +303,7 @@ def completed_tables(reference, full, shared, completed):
         lines.append(f'| {case["case"].replace("_LFOV.nii.gz", "")} | {float(r["shared_3d_dice"]):.4f} | {float(r["shared_2d_dice"]):.4f} | {float(r["delta_2d_minus_3d"]):+.4f} |')
     lines += ['', 'The paired overlays are in the [completed 2D result record](../UNet2D_s4984160/support/artifacts/final_test_2d/README.md).',
               'They reuse the same five cases and positions, without selecting new favourable examples.','',
-              '### E. Resource profile and confounders','',
-              '| Model | Parameters | Inference precision / GPU | Forward latency | Peak inference allocation |',
-              '| --- | ---: | --- | --- | --- |',
-              f'| Standard 3D | {reference["parameters"]:,} | BF16 / A100 40GB | {reference["median_forward_latency_ms"]:.2f} ms median/volume | {reference["peak_allocated_gpu_gb"]:.4f} GiB |',
-              f'| Standard 2D | {s["parameters_2d"]:,} | FP32 / A100 40GB | Not profiled | Not profiled |','',
-              '3D latency is forward-only; the paired evaluation did not measure 2D runtime',
-              'or memory in isolation. The models were co-resident for comparison, so total',
-              'allocation would not be a valid isolated-model profile. Per-slice timing',
-              'cannot be compared with 3D per-volume timing. Precision, resolution,',
-              'normalization, width/depth, sampling and training differ. This compares the',
-              'implemented pipelines and does not isolate a causal benefit of convolution dimension.','',
+              *resource_table(resources),
               '### F. Native 2D task (all 60 unpadded slices per scan)','',
               '| Model | Patients/scans/slices | Mean scan Dice ± SD | Mean patient Dice | Mean IoU | Native-band HD95 (mm) |',
               '| --- | ---: | ---: | ---: | ---: | ---: |',
@@ -323,6 +394,13 @@ def main():
                   ranking_status='no paired ranking until aligned 2D test evaluation')
     completed = load_completed_2d(summary,full_rows,shared_rows,entries,report)
     OUTPUT.mkdir(exist_ok=True)
+    resources = verified_resources(summary, full_rows) if completed and RESOURCE.exists() else None
+    if resources:
+        report['resource_profile'] = resources
+        with (OUTPUT/'resources.csv').open('w',newline='',encoding='utf-8') as stream:
+            writer=csv.DictWriter(stream,fieldnames=list(resources['measurement']['profiles'][0]))
+            writer.writeheader();writer.writerows(resources['measurement']['profiles'])
+    OUTPUT.mkdir(exist_ok=True)
     (OUTPUT/'metrics.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
     with (OUTPUT/'metrics.csv').open('w', newline='', encoding='utf-8') as stream:
         writer = csv.DictWriter(stream, fieldnames=list(entries[0]))
@@ -396,7 +474,7 @@ def main():
               '`python -m support.prepare_comparison`; this only reads archived local records.', '']
     section = '\n'.join(lines)
     if completed:
-        section = completed_tables(summary,full,shared,completed)
+        section = completed_tables(summary,full,shared,completed,resources)
     readme_path = ROOT/'README.md'
     readme = readme_path.read_text(encoding='utf-8')
     block = START+'\n'+section+END

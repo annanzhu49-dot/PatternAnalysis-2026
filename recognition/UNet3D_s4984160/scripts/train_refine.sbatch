@@ -13,7 +13,7 @@ cd "$HOME/PatternAnalysis-2026/recognition/UNet3D_s4984160"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 echo "Job: $SLURM_JOB_ID"
 echo "Start: $(date)"
-python -u baseline_refine_v2/train_refine.py \
+python -u train.py \
     --init-checkpoint results/scratch_fast_v1/last_model.pt \
     --epochs 100 \
     --lr 0.0005 \

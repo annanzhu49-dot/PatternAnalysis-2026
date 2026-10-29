@@ -2,7 +2,7 @@
 
 For a complete source-to-method explanation, training trajectory, six-class
 result table and report-ready interpretation, see
-[完整实验记录（中文）](../../EXPERIMENT_REPORT.md).
+[完整实验记录（中文）](../../docs/methods.md).
 
 Evaluation job 715670 completed on 2026-10-30 (Australia/Brisbane). The
 checkpoint was selected using validation data, then frozen before testing.
@@ -50,17 +50,16 @@ Frozen checkpoint SHA256:
 The actual checkpoint remains on the cluster at
 `results/refine_v2/best_model.pt`.
 
-The exact cluster source snapshots are preserved beside the main source files:
-`../../baseline_scratch_v1/`, `../../baseline_refine_v2/` and
-`../../evaluation_refine_v2_final/`. The associated Slurm scripts are
-`../../train_scratch_fast.sbatch`, `../../train_refine.sbatch` and
-`../../evaluate_refine.sbatch`. Their resource requests were not changed.
-The earlier root `train.py` is historical and did not produce this checkpoint.
+Duplicate source folders have been consolidated into canonical root code,
+`training/scratch.py` and root `train.py`. Original submitted sources are
+recoverable through [the provenance manifest](../../history/source_snapshots.json).
+Current Slurm scripts are under `../../scripts/`; their resource requests are
+unchanged. Earlier training code is under `../../history/`.
 
 To retrain, the scratch stage must finish before running refinement, and the
 dataset must be available at the configured course path. Evaluation requires
 the private checkpoint and saved split; uploading these sources does not
-include the checkpoint. `../../EVALUATION_USAGE.md` explains evaluation.
+include the checkpoint. `../../docs/evaluation.md` explains evaluation.
 
 ## Figures and comparison limits
 
@@ -71,7 +70,7 @@ sample. Each figure shows MRI, GT, prediction and prostate TP/FP/FN.
 Superior/inferior extent rows are GT-based proxies, not independently
 verified clinical apex/base annotations. Figure contents have been generated;
 the displayed views have now been reviewed against the numerical records in
-`../../CASE_ANALYSIS.md` and the main project README. This does not constitute
+`../../docs/case_analysis.md` and the main project README. This does not constitute
 an independent clinical annotation audit or inspection of all slices.
 
 `shared_2d_region_metrics.csv` restricts evaluation to the supplied 2D slice
@@ -89,15 +88,15 @@ the final report should retain the full project AI-use disclosure.
 
 ## Checked case review
 
-See [the five-case analysis](../../CASE_ANALYSIS.md) and
+See [the five-case analysis](../../docs/case_analysis.md) and
 [`case_review_metrics.csv`](case_review_metrics.csv) for reviewed observations,
 boundary-region counts, selection reasons and figure hashes.
 
 ## Comparison scopes
 
-The [comparison tables](../../comparison/RESULTS.md) keep this complete-volume
+The [comparison tables](../../README.md) keep this complete-volume
 result separate from the measured shared-band overlap scores. Shared-band HD95
 and organ-confusion counts were not measured in the archived band CSV and
 remain blank. Native 2D test scores also remain blank until a frozen 2D
 checkpoint is independently evaluated. The
-[protocol](../../COMPARISON_PROTOCOL.md) fixes the patient and grid alignment rules.
+[protocol](../../docs/comparison_protocol.md) fixes the patient and grid alignment rules.

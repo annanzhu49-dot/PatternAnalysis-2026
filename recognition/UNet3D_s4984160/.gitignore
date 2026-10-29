@@ -6,4 +6,5 @@ __pycache__/
 *.pt
 *.pth
 results/
+_local/
 *.sbatch.bak*

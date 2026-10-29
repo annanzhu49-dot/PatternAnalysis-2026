@@ -18,7 +18,7 @@ python -u evaluation_2d_final_v1/evaluate.py \
     --expected-sha256 3a666e057827897d294d9df9604ac325617fa874bf541402011537847024174b \
     --reference-checkpoint ../UNet3D_s4984160/results/refine_v2/best_model.pt \
     --reference-sha256 77ecc9f051d5d1213c2e62474d582050fe5b425a08182e3d2becc73540737156 \
-    --reference-code-dir ../UNet3D_s4984160/evaluation_refine_v2_final \
+    --reference-code-dir ../UNet3D_s4984160 \
     --reference-results ../UNet3D_s4984160/results/final_test_refine_v2 \
     --split-manifest baseline2d_v1/patient_split.json \
     --threads 1 --batch-size 16 \

@@ -14,7 +14,7 @@ export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 echo "Job: $SLURM_JOB_ID"
 echo "Start: $(date)"
 echo "Phase 1: two-case real-data execution check, NOT performance evidence"
-python -u baseline_scratch_v1/train_fast.py --epochs 1 --threads 1 --workers 0 --max-train-batches 2 --max-val-cases 2 --output-dir results/scratch_fast_smoke
+python -u -m training.scratch --epochs 1 --threads 1 --workers 0 --max-train-batches 2 --max-val-cases 2 --output-dir results/scratch_fast_smoke
 echo "Phase 2: full from-scratch training; 145 train and 39 validation scans"
-python -u baseline_scratch_v1/train_fast.py --epochs 40 --lr 0.0005 --threads 1 --workers 0 --output-dir results/scratch_fast_v1
+python -u -m training.scratch --epochs 40 --lr 0.0005 --threads 1 --workers 0 --output-dir results/scratch_fast_v1
 echo "Finish: $(date)"

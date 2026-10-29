@@ -33,12 +33,12 @@ K042 是较好整体分割中仍存在端部漏分的例子，H007 是中间分�
 | H007 Week0 | 0.7888 | 4.47 | 1.0833 | 0.7585 | 0.8217 | 0 / 5 |
 
 可机器核对的选例、完整指标、上下端两层指标和 PNG SHA256 在
-[`case_review_metrics.csv`](experiment_notes/final_test_refine_v2/case_review_metrics.csv)。
+[`case_review_metrics.csv`](../artifacts/final_test_3d/case_review_metrics.csv)。
 其数值来自原始 CSV；PNG 标题中的病例、Dice 和 HD95 也已逐张对照。
 
 ## 1. B037 Week0：整体欠分割，上端完全漏分
 
-![B037 Week0](experiment_notes/final_test_refine_v2/B037_Week0_LFOV.png)
+![B037 Week0](../artifacts/final_test_3d/figures/B037_Week0_LFOV.png)
 
 **图像观察：** 中部 D=30 仍有较大的绿色重叠，但 GT 一侧有明显蓝色漏分。
 上端 D=39 的 GT 品红色小区域没有相应前列腺预测，误差图显示蓝色；冠状面也可见
@@ -55,7 +55,7 @@ GT 在该区域的形态、降采样及邻近组织区分可能影响结果，�
 
 ## 2. L011 Week2：高召回伴随多分，局部边缘仍漏分
 
-![L011 Week2](experiment_notes/final_test_refine_v2/L011_Week2_LFOV.png)
+![L011 Week2](../artifacts/final_test_3d/figures/L011_Week2_LFOV.png)
 
 **图像观察：** 中部 D=38 的绿色区域周围存在红色边缘，显示预测超出 GT；
 上端 D=44 的微小 GT 区域存在蓝色漏分。冠状面中心大部分匹配，但不能因此推断
@@ -71,7 +71,7 @@ GT 在该区域的形态、降采样及邻近组织区分可能影响结果，�
 
 ## 3. H017 Week3：总体积几乎正确，但空间匹配仍不足
 
-![H017 Week3](experiment_notes/final_test_refine_v2/H017_Week3_LFOV.png)
+![H017 Week3](../artifacts/final_test_3d/figures/H017_Week3_LFOV.png)
 
 **图像观察：** 中部 D=33 同时存在红色和蓝色边缘；上端 D=37 也有绿色重叠与
 局部漏分。冠状面大部分为绿色，边缘仍有红蓝差异，提示总体积相近并不等于边界一致。
@@ -86,7 +86,7 @@ Dice、HD95 和误差叠图。可以描述局部轮廓不一致，不能仅凭�
 
 ## 4. K042 Week0：整体较好，GT 下端仍明显漏分
 
-![K042 Week0](experiment_notes/final_test_refine_v2/K042_Week0_LFOV.png)
+![K042 Week0](../artifacts/final_test_3d/figures/K042_Week0_LFOV.png)
 
 **图像观察：** 中部 D=34 与冠状面大部分绿色重叠，属于五例中整体 Dice 较好的例子。
 下端 D=26 出现蓝色漏分，上端 D=41 仍有局部红色外扩。
@@ -100,7 +100,7 @@ Dice、HD95 和误差叠图。可以描述局部轮廓不一致，不能仅凭�
 
 ## 5. H007 Week0：中间水平整体表现，端部小区域漏分
 
-![H007 Week0](experiment_notes/final_test_refine_v2/H007_Week0_LFOV.png)
+![H007 Week0](../artifacts/final_test_3d/figures/H007_Week0_LFOV.png)
 
 **图像观察：** 中部 D=30 多数为绿色并有少量红色边缘；下端 D=24 的小 GT 区域
 没有相应预测，显示蓝色；上端 D=36 亦可见蓝色漏分。冠状面主体大致重叠。

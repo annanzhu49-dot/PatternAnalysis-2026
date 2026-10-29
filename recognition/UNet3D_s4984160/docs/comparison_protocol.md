@@ -1,7 +1,7 @@
 # 2D / 3D 对比表及共同评价规则
 
 本文件固定后续填写规则，不启动新训练，也不声称 2D 已达到目标。
-主表在本项目 `README.md`；独立副本在 [`comparison/RESULTS.md`](comparison/RESULTS.md)。
+主表在本项目 [README.md](../README.md)，不再保留重复的 Markdown 副本。机器可读结果在 `comparison/metrics.json` 和 `metrics.csv`。
 2D U-Net 是当前已提交的对照，2D Improved U-Net 只保留可选空栏，不代表同时开展新实验。
 
 ## 1. 三种范围分别报告
@@ -92,7 +92,7 @@ InstanceNorm；2D 为 base 16、四次池化、BatchNorm。2D 逐片归一化，
 - 重新用 TP/FP/FN 验算完整体积和共同区域的每例、每类 Dice/IoU。
 - 重算逐扫描平均/标准差、逐患者平均、总体指标，与两份冻结摘要核对。
 - 核对病例集合、患者数、完整体积 HD95 和侵入计数，保存来源文件哈希。
-- 生成 `comparison/metrics.json`、`metrics.csv`、`RESULTS.md` 和 README 内主表。
+- 生成 `comparison/metrics.json`、`metrics.csv` 和 README 内主表，不另复制一份相同的 Markdown 表。
 - 2D 未完成的数值使用 JSON null / CSV 空栏 / Markdown Pending，不拿验证值或合成值代替。
 
 当前结果：3D 完整体积与共同区域重叠指标已填写；2D 原生及共同网格指标待独立测试；

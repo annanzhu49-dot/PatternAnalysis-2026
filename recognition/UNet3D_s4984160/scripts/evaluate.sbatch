@@ -13,13 +13,13 @@ cd "$HOME/PatternAnalysis-2026/recognition/UNet3D_s4984160"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 echo "Job: $SLURM_JOB_ID"
 echo "Start: $(date)"
-python -u evaluation_refine_v2_final/evaluate.py \
+python -u evaluate.py \
     --checkpoint results/refine_v2/best_model.pt \
     --split test \
     --split-manifest results/refine_v2/split.json \
     --threads 1 \
     --output-dir results/final_test_refine_v2
-python -u evaluation_refine_v2_final/predict.py \
+python -u predict.py \
     --input-dir results/final_test_refine_v2/prediction_inputs \
     --output-dir results/final_test_refine_v2/figures
 echo "Finish: $(date)"

@@ -15,13 +15,13 @@
 | 数据配对、患者划分、预处理 | `dataset.py` | MRI/标签配对；按患者划分；归一化、转轴、降采样 |
 | 标准网络结构 | `modules.py` | 三层编码器、瓶颈、三层解码器及跳跃连接；六类 logits |
 | 最终模型构造 | `baseline_model.py` | 将默认 BatchNorm3d 替换为带 affine 参数的 InstanceNorm3d |
-| 初始训练 | `train_fast.py` / `baseline_scratch_v1/` | 从头训练，实际跑 15 轮，保留最后权重 |
-| 继续训练 | `train_refine.py` / `baseline_refine_v2/` | 加载初始阶段最后权重，重新创建优化器，调整损失权重 |
+| 初始训练 | `training/scratch.py` | 从头训练，实际跑 15 轮，保留最后权重 |
+| 继续训练 | `train.py` | 加载初始阶段最后权重，重新创建优化器，调整损失权重 |
 | 完整验证与独立测试 | `evaluate.py`、`evaluation_utils.py` | 严格加载冻结模型，计算逐扫描及汇总指标、HD95、侵入计数 |
 | 预测图 | `predict.py` | 使用评价缓存绘制 MRI、GT、预测及 TP/FP/FN，无需第二次推理 |
-| 原始实验记录 | `experiment_notes/final_test_refine_v2/` | 配置、划分、训练历史、测试指标及五张预测图 |
+| 原始实验记录 | `artifacts/final_test_3d/` | 配置、划分、训练历史、测试指标及五张预测图 |
 
-**入口区别：** 根目录 `train.py` 是早期版本。最终结果来自 `train_fast.py` → `train_refine.py`，提交脚本使用相应冻结目录；不能把早期 `train.py` 的默认配置描述成这次实验的配置。
+**入口区别：** 整理后的根目录 `train.py` 就是最终继续训练阶段；初始阶段为 `python -m training.scratch`。早期实现移到 `history/early_train.py`。两阶段实际训练逻辑没有修改，原始提交快照通过 `history/source_snapshots.json` 记录的 Git 版本恢复。
 
 ## 3. 数据与预处理：`dataset.py`
 
@@ -134,9 +134,9 @@ SD 为扫描间标准差，不是置信区间；同一患者多周扫描并非�
 
 预测总体积较 GT 大 **17.75%**，召回率高于精确率，符合仍有过分割倾向。总 FP 为 7859，其中 110 个落在 GT 膀胱或直肠内，占全部前列腺 FP 的 1.40%；因此不能把主要假阳性都解释成侵入这两个器官。
 
-以上数值已结合五张 MRI/GT/预测/TP-FP-FN 图逐张检查，详见 [CASE_ANALYSIS.md](CASE_ANALYSIS.md) 和本项目 [README.md](README.md) 的案例分析。它们覆盖低 Dice、边界误差、器官混淆、局部漏分和中位表现，优先不同患者，并非随机样本；选例策略名称不等于全组最差排序。已完成对展示图和原始指标的算法错误分析，未完成独立临床标注质检或全部切片审查。
+以上数值已结合五张 MRI/GT/预测/TP-FP-FN 图逐张检查，详见 [CASE_ANALYSIS.md](case_analysis.md) 和本项目 [README.md](../README.md) 的案例分析。它们覆盖低 Dice、边界误差、器官混淆、局部漏分和中位表现，优先不同患者，并非随机样本；选例策略名称不等于全组最差排序。已完成对展示图和原始指标的算法错误分析，未完成独立临床标注质检或全部切片审查。
 
-图里的 inferior/superior extent 来自 GT 首末两层，是端部代理区域，不是独立专家标注的 apex/base 地标。详见 [图与原始结果目录](experiment_notes/final_test_refine_v2/)。
+图里的 inferior/superior extent 来自 GT 首末两层，是端部代理区域，不是独立专家标注的 apex/base 地标。详见 [图与原始结果目录](../artifacts/final_test_3d)。
 
 ## 8. 资源记录与可重复性
 
@@ -161,9 +161,8 @@ Slurm 资源保持原模板：`partition=comp3710`、`account=comp3710`、`gres=
 
 ## 9. 与 2D 的对比安排
 
-当前完整对比表在项目 [README.md](README.md)，独立副本为
-[comparison/RESULTS.md](comparison/RESULTS.md)。详细填写及空间对齐规则见
-[COMPARISON_PROTOCOL.md](COMPARISON_PROTOCOL.md)。完整体积、原生二维和共同网格三种
+当前完整对比表统一在项目 [README.md](../README.md)。详细填写及空间对齐规则见
+[COMPARISON_PROTOCOL.md](comparison_protocol.md)。完整体积、原生二维和共同网格三种
 评价范围分开保存，未完成的 2D／可选 Improved 2D 分数保留空值。
 
 2D 继续使用同一批患者划分，但课程 2D 数据仅覆盖原始 axis 1 的 98..157 切片，并逐切片归一化；3D 使用非零体素逐体积归一化，且已降采样。最终比较应明确这些预处理差异，将两边预测映射到共同空间覆盖和分辨率，采用相同的逐扫描指标定义。

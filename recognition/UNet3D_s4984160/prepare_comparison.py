@@ -12,7 +12,7 @@ import statistics
 
 
 ROOT = Path(__file__).resolve().parent
-ARCHIVE = ROOT / 'experiment_notes/final_test_refine_v2'
+ARCHIVE = ROOT / 'artifacts/final_test_3d'
 OUTPUT = ROOT / 'comparison'
 START = '<!-- BEGIN GENERATED COMPARISON -->'
 END = '<!-- END GENERATED COMPARISON -->'
@@ -206,16 +206,11 @@ def main():
               'This is the native 2D task, grouped by scan. Its figures and metrics use',
               'original valid pixels (256×128 or 256×144); padding label 255 is ignored.',
               'These results are not substituted into table B without grid alignment.', '',
-              'Protocol and missing-result rules: [COMPARISON_PROTOCOL.md](COMPARISON_PROTOCOL.md).',
+              'Protocol and missing-result rules: [comparison protocol](docs/comparison_protocol.md).',
               'Auditable tables: [comparison/metrics.json](comparison/metrics.json) and',
               '[comparison/metrics.csv](comparison/metrics.csv). Regenerate with',
               '`python prepare_comparison.py`; this only reads archived local records.', '']
     section = '\n'.join(lines)
-    # The standalone copy lives one directory deeper.
-    standalone = section.replace('(COMPARISON_PROTOCOL.md)', '(../COMPARISON_PROTOCOL.md)')
-    standalone = standalone.replace('(comparison/metrics.json)', '(metrics.json)')
-    standalone = standalone.replace('(comparison/metrics.csv)', '(metrics.csv)')
-    (OUTPUT/'RESULTS.md').write_text(standalone, encoding='utf-8')
     readme_path = ROOT/'README.md'
     readme = readme_path.read_text(encoding='utf-8')
     block = START+'\n'+section+END

@@ -61,7 +61,7 @@ The smoke run and formal training have separate output directories.
 
 The final report and comparison tables are maintained in the
 [3D project README](../UNet3D_s4984160/README.md). Use the fixed
-[comparison protocol](../UNet3D_s4984160/COMPARISON_PROTOCOL.md) before filling
+[comparison protocol](../UNet3D_s4984160/docs/comparison_protocol.md) before filling
 shared-grid metrics. Native 2D 60-slice scores and aligned 30-plane scores
 have separate tables. Improved 2D U-Net is only an optional empty comparison
 row; it is not implemented or scheduled by this handoff. Do not launch another

@@ -70,7 +70,9 @@ different patients preferred. They are diagnostic examples, not a random
 sample. Each figure shows MRI, GT, prediction and prostate TP/FP/FN.
 Superior/inferior extent rows are GT-based proxies, not independently
 verified clinical apex/base annotations. Figure contents have been generated;
-patient-image interpretation still requires visual review.
+the displayed views have now been reviewed against the numerical records in
+`../../CASE_ANALYSIS.md` and the main project README. This does not constitute
+an independent clinical annotation audit or inspection of all slices.
 
 `shared_2d_region_metrics.csv` restricts evaluation to the supplied 2D slice
 band on the resized grid. It is not the full-volume test score and is not
@@ -84,3 +86,9 @@ versions and metric definitions are stored in `summary.json`.
 
 Implementation, evaluation adaptation and documentation used AI assistance;
 the final report should retain the full project AI-use disclosure.
+
+## Checked case review
+
+See [the five-case analysis](../../CASE_ANALYSIS.md) and
+[`case_review_metrics.csv`](case_review_metrics.csv) for reviewed observations,
+boundary-region counts, selection reasons and figure hashes.

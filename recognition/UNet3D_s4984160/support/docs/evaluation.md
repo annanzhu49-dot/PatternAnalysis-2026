@@ -1,5 +1,9 @@
 # Frozen 3D U-Net evaluation
 
+The root `predict.py` now supports direct checkpoint inference with labelled
+MRI input, in addition to its original cached-render mode. See
+[the direct example and resource protocol](resource_profile.md).
+
 Slurm job **715670** completed on 2026-10-30 with an empty error log and five saved prediction figures. Held-out test mean scan prostate Dice was **0.773216**, mean HD95 **6.4995 mm** (approximate resized-grid spacing). Original metrics, training records and figures are archived in `support/artifacts/final_test_3d/`. All eight synthetic checks on Rangpur and a synthetic figure layout inspection passed before submission; visual interpretation of the actual patient figures remains a separate step.
 
 Evaluate `results/refine_v2/best_model.pt`, refinement epoch 11, after 15 initial scratch epochs. Validation prostate Dice was 0.75597. This does not establish test performance.

@@ -16,10 +16,51 @@ import torch
 import evaluate as evaluator
 from support.baseline_model import make_model
 from support.evaluation_utils import boundary_regions, class_metrics, geometry, hd95, load_model, summarize
-from predict import planes_for
+from predict import planes_for, predict_case
+from support.plot_training_curves import read_history
 
 
 class MetricTests(unittest.TestCase):
+    def test_direct_checkpoint_inference_uses_saved_config(self):
+        torch.manual_seed(42)
+        model=make_model(base_channels=2,normalization='instance')
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);checkpoint=root/'weights.pt'
+            torch.save(dict(model_state_dict=model.state_dict(),epoch=11,
+                            model_config=dict(base_channels=2,normalization='instance'),
+                            training_config=dict(target_shape=[16,16,16])),checkpoint)
+            rng=np.random.default_rng(42)
+            image=rng.normal(size=(32,32,32)).astype(np.float32)
+            target=np.zeros((32,32,32),np.uint8);target[8:24,8:24,8:24]=5
+            nib.save(nib.Nifti1Image(image,np.eye(4)),root/'mri.nii.gz')
+            nib.save(nib.Nifti1Image(target,np.eye(4)),root/'mask.nii.gz')
+            from support.evaluation_utils import checkpoint_sha256
+            before=checkpoint_sha256(checkpoint)
+            with patch('predict.render') as plotting:
+                meta=predict_case(checkpoint,root/'mri.nii.gz',root/'mask.nii.gz',root/'output',
+                                  'cpu','fp32',before)
+                self.assertEqual(plotting.call_count,1)
+            self.assertEqual(meta['epoch'],11)
+            self.assertEqual(meta['target_shape'],[16,16,16])
+            self.assertEqual(np.load(root/'output/prediction_dhw.npy').shape,(16,16,16))
+            self.assertEqual(checkpoint_sha256(checkpoint),before)
+            self.assertTrue((root/'output/prediction_complete.txt').exists())
+            with self.assertRaisesRegex(ValueError,'SHA256'):
+                predict_case(checkpoint,root/'mri.nii.gz',root/'mask.nii.gz',root/'bad',
+                             'cpu','fp32','0'*64)
+            self.assertFalse((root/'bad').exists())
+
+    def test_history_plot_offset_and_missing_epochs(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'history.csv'
+            path.write_text('epoch,train_loss,'+','.join(f'val_dice_{c}' for c in range(6))+
+                            '\n1,0.5,0,0,0,0,0,0.4\n2,0.4,0,0,0,0,0,0.7\n')
+            rows=read_history(path,'refinement',15)
+            self.assertEqual([r['cumulative_epoch'] for r in rows],[16,17])
+            self.assertEqual(rows[-1]['val_dice_5'],.7)
+            path.write_text(path.read_text().replace('2,0.4','3,0.4'))
+            with self.assertRaises(ValueError):read_history(path,'refinement',15)
+
     def test_overlap_counts_and_empty_class(self):
         target = np.array([5,5,0,0]).reshape(1,2,2)
         pred = np.array([5,0,5,0]).reshape(1,2,2)

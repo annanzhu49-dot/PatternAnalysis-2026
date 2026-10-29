@@ -11,6 +11,7 @@
 | `baseline_model.py` | 按检查点配置构造实际训练的归一化层 |
 | `evaluation_utils.py` | 指标、空间信息和权重加载辅助函数 |
 | `prepare_comparison.py` | 核对原始指标并更新总报告对比表 |
+| `plot_training_curves.py` | 读取已有 CSV 绘制 3D 训练曲线，不训练模型 |
 | `training/` | 初始从头训练阶段；根目录 train.py 是后续训练阶段 |
 | `scripts/` | 三个当前 Slurm 提交脚本 |
 | `tests/` | 合成数据检查 |

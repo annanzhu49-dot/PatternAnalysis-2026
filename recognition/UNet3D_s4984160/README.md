@@ -40,7 +40,7 @@ Local-only caches/notes under `_local/` and `results/` are excluded from Git.
 | 2. 模型 | `modules.py` | 标准 3D U-Net；实际归一化配置由 support 中的辅助函数构造 |
 | 3. 训练 | `train.py` | 最终继续训练阶段；初始训练实现收在 support 中 |
 | 4. 评价 | `evaluate.py` | 加载冻结权重，在独立测试集计算指标 |
-| 5. 预测 | `predict.py` | 使用评价缓存生成预测图，不重复推理 |
+| 5. 预测 | `predict.py` | 直接加载权重推理并出图，也可复用评价缓存 |
 
 
 The model uses base width 8 and affine InstanceNorm3d (351,206 parameters),
@@ -89,6 +89,25 @@ python train.py --help
 python -m unittest discover -s support/tests -v
 python -m support.prepare_comparison
 ```
+
+### Direct checkpoint prediction example
+
+On a GPU node, from this project directory with the private course data:
+
+```bash
+python predict.py \
+  --checkpoint results/refine_v2/best_model.pt \
+  --mri /home/groups/comp3710/HipMRI_Study_open/semantic_MRs/B037_Week0_LFOV.nii.gz \
+  --mask /home/groups/comp3710/HipMRI_Study_open/semantic_labels_only/B037_Week0_SEMANTIC.nii.gz \
+  --expected-sha256 77ecc9f051d5d1213c2e62474d582050fe5b425a08182e3d2becc73540737156 \
+  --device cuda --precision bf16 --threads 1 --output-dir results/direct_example
+```
+
+This loads the saved configuration/weights, applies `dataset.py` preprocessing,
+runs inference, prints Dice/HD95 and saves a prediction overlay plus resized
+D,H,W labels and metadata. GT is used for evaluation/visualization, not input
+to the network. A new output directory is required. The original cached-render
+command still works. See [prediction and resource usage](support/docs/resource_profile.md).
 
 The final checkpoint remains on the cluster at `results/refine_v2/best_model.pt`;
 its SHA256 and original metrics are in
@@ -207,6 +226,16 @@ Auditable outputs: [metrics.json](support/comparison/metrics.json),
 Regenerate with `python -m support.prepare_comparison` (local records only).
 <!-- END GENERATED COMPARISON -->
 
+## 3D training evidence
+
+![Existing 3D training loss and validation Dice](support/artifacts/training_3d/training_curves.png)
+
+The plot uses the original 15 initial and 11 refinement epochs. Training
+objectives have phase-specific weights, so they are plotted as separate lines.
+Validation loss was not logged; the recorded validation metric is prostate
+Dice. The selected point is cumulative epoch 26. Source values and hashes
+are preserved in [the 3D training record](support/artifacts/training_3d/README.md).
+
 ## 2D baseline training evidence
 
 ![2D loss and validation Dice](../UNet2D_s4984160/support/artifacts/training_716367/training_plot.png)
@@ -294,8 +323,9 @@ This remains a report in progress. The complete method notes in
 final report body, together with the original one-page feasibility review,
 the completed 2D/3D comparison, literature references and a complete subsection
 entitled `Artificial Intelligence Usage Disclosure`. The current root `train.py` is the final refinement training stage. The
-current `predict.py` renders cached predictions after `evaluate.py` performs
-checkpoint loading/inference; the direct-inference entry-point requirement
-still needs final review before submission. A README export should
+current `predict.py` now supports direct checkpoint loading/inference and
+the original cached-render mode. The GPU example is included with the
+short resource measurement job; its actual completion must be checked.
+A README export should
 include the actual report text and figures rather than rely solely on links.
 No final PDF export or PR creation is claimed by this documentation update.

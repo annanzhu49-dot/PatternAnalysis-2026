@@ -1,6 +1,66 @@
 # HipMRI 2D U-Net comparison: dataset module
 
-This directory contains the independently reviewed 2D data loader and standard 2D U-Net in `modules.py`. Training/evaluation scripts and real-data 2D results are not yet available here.
+This directory contains the independently reviewed 2D data loader, standard 2D U-Net in `modules.py`, and training script `train.py`. Standalone test evaluation/prediction scripts and real-data 2D results are not yet available here.
+
+## Training
+
+The training loop retains the author's train/validate/save structure, Adam
+and initial learning rate 0.001. The default objective is equal-weight CE
+and soft foreground Dice (classes 1..5), masking label 255 from both terms.
+Use `--dice-weight 0` for CE only. No class frequencies or test scores are
+used to set loss weights. Validation accumulates a six-class confusion matrix
+for each patient/week scan over all 60 supplied slices, then averages each
+class's scan Dice. Both-empty scan/class pairs are undefined and excluded;
+false positives on an otherwise absent class score zero. Best model selection,
+LR reduction and early stopping use **mean scan prostate Dice (class 5)**.
+Pooled class Dice, valid scan counts, precision/recall and volume ratio are
+recorded separately. These native 2D partial-band scores are not equivalent
+to full-volume 3D scores.
+
+Formal runs traverse the entire training and validation sets. The test loader
+is constructed by the shared helper but never iterated. Defaults: 30 maximum
+epochs, batch size 16, base width 16, minimum 10 epochs, early-stop patience 8;
+LR halves after 4 scheduler patience epochs without improvement, down to 1e-6.
+Seed 42 initializes Python/PyTorch RNGs; exact cross-hardware reproducibility
+is not guaranteed. CPU thread default 4 is a runtime option, not a Slurm CPU
+resource request. No job is submitted automatically.
+
+```powershell
+# From the repository root; choose the actual local dataset path.
+.\.venv\Scripts\python.exe recognition/UNet2D_s4984160/train.py --data-dir D:/HipMRI --output-dir recognition/UNet2D_s4984160/results/smoke --device cpu --epochs 1 --smoke-steps 2
+# After checking real-data throughput, omit --smoke-steps for full training.
+.\.venv\Scripts\python.exe recognition/UNet2D_s4984160/train.py --data-dir D:/HipMRI --output-dir recognition/UNet2D_s4984160/results/baseline --device cpu
+```
+
+The output directory must be new. Outputs include `config.json`, the exact
+`patient_split.json`, a source snapshot, per-epoch `history.csv`,
+`best_model.pt`, `last_model.pt` and `training_summary.json`. Checkpoints
+include model configuration, model/optimizer/scheduler states, selected metric
+and validation results; this script does not implement exact resume. Smoke
+outputs are explicitly marked and must never be reported as performance.
+`training_plot.png` is generated if Matplotlib is installed; missing plotting
+dependencies do not prevent training. Loss curves are valid-pixel-weighted
+averages of batch objectives; soft Dice loss itself is batch aggregated.
+
+Do not infer success from completed epochs: inspect the recorded prostate
+validation Dice and then evaluate the selected checkpoint once on held-out
+patients. No real-data training or Dice threshold achievement is claimed yet.
+
+## Cluster handoff and 3D comparison
+
+The frozen training snapshot was submitted as Rangpur job **716367** using
+`train_baseline.sbatch` (remote name `train_baseline_v1.sbatch`); see
+[CLUSTER_RUN.md](CLUSTER_RUN.md) for the submitted configuration and query commands.
+Submission is confirmed, but completion and actual results are not recorded here.
+The smoke run and formal training have separate output directories.
+
+The final report and comparison tables are maintained in the
+[3D project README](../UNet3D_s4984160/README.md). Use the fixed
+[comparison protocol](../UNet3D_s4984160/COMPARISON_PROTOCOL.md) before filling
+shared-grid metrics. Native 2D 60-slice scores and aligned 30-plane scores
+have separate tables. Improved 2D U-Net is only an optional empty comparison
+row; it is not implemented or scheduled by this handoff. Do not launch another
+training job merely to populate that optional row.
 
 ## Model
 
@@ -69,4 +129,4 @@ The original 3D headers use L/P/S axes; the matched planes are coronal. The slic
 
 Run `python -m unittest discover -s recognition/UNet2D_s4984160/tests -v` from the repository root with NumPy, NiBabel and PyTorch installed. Tests create synthetic NIfTI fixtures; they do not use patient images. Synthetic tests check loading behavior, not full real-data correctness or model performance.
 
-The loader and model were adapted from the author's submitted drafts, with AI assistance reviewing directory pairing, explicit split handling, normalization/padding, input validation, model width and checks. The author's original attachment was preserved. No friend's implementation, model weights, experimental scores or report text are included. Final project documentation will need the full AI-use disclosure, exact environment versions and measured experimental results.
+The loader, model and training loop were adapted from the author's submitted drafts, with AI assistance reviewing directory pairing, explicit split handling, normalization/padding, input validation, model width, scan-level metric aggregation, checkpointing and checks. General CE/Adam/early-stopping ideas were also discussed in the author's linked reference conversation; the linked friend's implementation was not used. The author's original attachments were preserved. No friend's implementation, model weights, experimental scores or report text are included. Final project documentation will need the full AI-use disclosure, exact environment versions and measured experimental results.

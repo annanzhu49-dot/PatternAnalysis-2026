@@ -117,7 +117,10 @@ class DatasetTests(unittest.TestCase):
         self.assertTrue(np.array_equal(mask[:,:128].numpy(), raw[::-1]))
 
     def test_default_manifest_matches_existing_3d_split(self):
-        path = PROJECT.parent / 'UNet3D_s4984160' / 'dataset.py'
+        # Also support a frozen run snapshot nested inside the 2D directory.
+        path = next(parent / 'UNet3D_s4984160' / 'dataset.py'
+                    for parent in PROJECT.parents
+                    if (parent / 'UNet3D_s4984160' / 'dataset.py').is_file())
         spec3d = importlib.util.spec_from_file_location('existing_hipmri3d', path)
         module3d = importlib.util.module_from_spec(spec3d)
         spec3d.loader.exec_module(module3d)

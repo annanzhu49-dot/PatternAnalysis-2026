@@ -82,9 +82,9 @@
       "pooled_precision": 0.714726487349813,
       "pooled_recall": 0.8415968541631048,
       "pooled_volume_ratio": 1.177508975893315,
-      "hd95_mm": null,
-      "fp_in_bladder": null,
-      "fp_in_rectum": null
+      "hd95_mm": 6.49951326285531,
+      "fp_in_bladder": 89,
+      "fp_in_rectum": 21
     },
     {
       "region": "shared_band",
@@ -94,18 +94,18 @@
       "source_indices": "98,100,...,156",
       "aggregation": "mean_scan; pooled metrics separately labelled",
       "model": "standard_2d_unet",
-      "status": "awaiting_frozen_test_evaluation",
-      "mean_case_dice": null,
-      "std_case_dice": null,
-      "mean_patient_dice": null,
-      "mean_case_iou": null,
-      "pooled_dice": null,
-      "pooled_precision": null,
-      "pooled_recall": null,
-      "pooled_volume_ratio": null,
-      "hd95_mm": null,
-      "fp_in_bladder": null,
-      "fp_in_rectum": null
+      "status": "measured",
+      "mean_case_dice": 0.8231984155504001,
+      "std_case_dice": 0.06451429093579632,
+      "mean_patient_dice": 0.7876523558951887,
+      "mean_case_iou": 0.7044166863958927,
+      "pooled_dice": 0.8253525424467645,
+      "pooled_precision": 0.8420724927729597,
+      "pooled_recall": 0.809283638228757,
+      "pooled_volume_ratio": 0.9610617199521285,
+      "hd95_mm": 5.178383872170775,
+      "fp_in_bladder": 110,
+      "fp_in_rectum": 400
     },
     {
       "region": "native_2d_band",
@@ -115,18 +115,18 @@
       "source_indices": "98..157 inclusive; all 60 planes",
       "aggregation": "mean_scan; pooled metrics separately labelled",
       "model": "standard_2d_unet",
-      "status": "awaiting_frozen_test_evaluation",
-      "mean_case_dice": null,
-      "std_case_dice": null,
-      "mean_patient_dice": null,
-      "mean_case_iou": null,
-      "pooled_dice": null,
-      "pooled_precision": null,
-      "pooled_recall": null,
-      "pooled_volume_ratio": null,
-      "hd95_mm": null,
-      "fp_in_bladder": null,
-      "fp_in_rectum": null
+      "status": "measured",
+      "mean_case_dice": 0.8253588505195012,
+      "std_case_dice": 0.06397574482437848,
+      "mean_patient_dice": 0.7908615256704327,
+      "mean_case_iou": 0.7075110932304428,
+      "pooled_dice": 0.8288079479206623,
+      "pooled_precision": 0.8440474739303405,
+      "pooled_recall": 0.8141089704192609,
+      "pooled_volume_ratio": 0.964529834593699,
+      "hd95_mm": 4.902275109386789,
+      "fp_in_bladder": 1042,
+      "fp_in_rectum": 3009
     },
     {
       "region": "shared_band",
@@ -171,7 +171,29 @@
       "fp_in_rectum": null
     }
   ],
-  "shared_hd95_and_organ_confusion": "not measured in shared-band CSV",
-  "shared_2d_alignment_status": "pending actual 2D predictions and exact GT grid check",
-  "ranking_status": "no paired ranking until aligned 2D test evaluation"
+  "shared_hd95_and_organ_confusion": "Independently measured in frozen paired job 716656",
+  "shared_2d_alignment_status": "Exact GT equality for all 27 scans; reference counts match archive",
+  "ranking_status": "Descriptive comparison of these pipelines, not an isolated dimensionality ablation",
+  "checkpoint_2d_sha256": "3a666e057827897d294d9df9604ac325617fa874bf541402011537847024174b",
+  "sources_2d_sha256": {
+    "summary.json": "e9caca7a882cc2ed5074feb5585bbf3ed64534ffa82d6c23ec1bd1c6c4887175",
+    "native_2d_per_case_metrics.csv": "1ab0b9fb996013c120c76b05dc6191f98ae538a1a376514f84067fbe49594f81",
+    "shared_2d_per_case_metrics.csv": "a2bc765a28f0d2a2df3acb8134d5ce3a91227332addadd0d0d17ab151ea480dc",
+    "reference_3d_shared_metrics.csv": "869dcf5e3e3d87428fa9d5e151b199eba2d0cd64ea071eddf7ddd333726a98c7",
+    "paired_cases.csv": "f978fb8e626f157c3ae7449f404ee202951911a69aac1a631775f9f02b52ca47"
+  },
+  "shared_boundary_touches": {
+    "gt_scans": 0,
+    "prediction_2d_scans": 1,
+    "prediction_3d_scans": 0
+  },
+  "paired_descriptive_results": {
+    "mean_scan_delta": 0.04998240614765018,
+    "median_scan_delta": 0.07171375841542982,
+    "mean_patient_delta": 0.019834061167413892,
+    "scans_2d_higher": 21,
+    "scans_3d_higher": 6,
+    "patients_2d_higher": 4,
+    "native_2d_scans_below_075": 4
+  }
 }

@@ -6,7 +6,7 @@
 
 本项目当前采用 **Normal 难度的标准 3D U-Net**，目标是完成 HipMRI 六类分割，重点评价前列腺。模型不包含残差模块或深监督。最终模型在验证集选定后冻结，在独立测试集的 27 个扫描、6 位患者上得到前列腺逐扫描平均 Dice **0.7732**。这个结果达到本次采用的 0.70 平均 Dice 目标，但不表示每个扫描都超过 0.70。
 
-2D U-Net 对照尚未完成；此处只报告 3D 结果，不声称 3D 已经优于 2D。
+2D 对照已完成：原生二维测试 Dice 0.825359；共同网格的 2D/3D Dice 为 0.823198/0.773216。2D 的平均重叠更好，但直肠侵入更多；不是 3D 普遍优于 2D 的证据。
 
 ## 2. 文件与实验步骤对应
 
@@ -169,24 +169,23 @@ Slurm 资源保持原模板：`partition=comp3710`、`account=comp3710`、`gres=
 
 本次 `shared_2d_region_metrics.csv` 提供了 3D 降采样网格的共同切片带统计。该网格上前列腺的 TP/FP/FN 恰好与完整体积统计一致，因此前列腺 Dice 数值相同；不意味着所有类别或其他数据也等价，也不自动使它与原始二维分辨率分数公平可比。
 
-共同区域 CSV 未计算 HD95 与器官交叉混淆，所以不能把完整体积的 HD95=6.50 mm、
-误入膀胱/直肠=89/21 搬到共同区域表。评价标签 nearest 映射到 W=49..78，对应原始
+原始共同区域 CSV 未计算 HD95 与器官交叉混淆。本次任务 716656 通过冻结模型独立补算后才填入共同区域表；没有直接把完整体积数值搬过去。评价标签 nearest 映射到 W=49..78，对应原始
 Y=98,100,...,156，仅 30 个目标平面；二维的 60 张原生切片得分仍需单独报告。
 
 | 对比项目 | 标准 3D U-Net | 标准 2D U-Net |
 | --- | --- | --- |
 | 患者划分 | 26/6/6 | 同一患者分组 |
-| 训练状态 | 完成，冻结 | 已提交任务 716367，实际完成状态待查询 |
-| 独立测试前列腺 Dice | 0.773216（完整降采样体积） | 待评价 |
-| 共同空间上的最终公平对比 | 待双方对齐后报告 | 待双方对齐后报告 |
-| 结果图 | 5 张已生成并完成展示图的错误分析 | 待训练和推理完成 |
+| 训练状态 | 完成，冻结 | 完成，冻结第 5 轮 |
+| 原生任务独立测试 Dice | 0.773216（完整降采样体积） | 0.825359（60 张原生切片带，不能直接与左列判胜负） |
+| 共同网格逐扫描 Dice | 0.773216 | 0.823198 |
+| 结果图 | 原始 5 图及错误分析保留 | 同五例配对图已生成并分析 |
 
 ## 10. 报告可用的英文结果段落
 
-A standard 3D U-Net with a base width of 8 and affine instance normalization was trained on 145 scans from 26 patients. Validation used 39 scans from six disjoint patients. After 15 initial epochs and 11 refinement epochs, the checkpoint selected by mean validation prostate Dice (0.7560) was frozen. On 27 held-out scans from six patients, it achieved mean scan-level prostate Dice of 0.7732 (SD 0.0557), mean patient-level Dice of 0.7678, and mean HD95 of 6.50 mm using approximate spacing on the resized grid. Pooled precision and recall were 0.7147 and 0.8416, respectively; the pooled predicted-to-reference volume ratio was 1.1775, indicating an oversegmentation tendency. Three scans had Dice below 0.70. These results establish the completed 3D experiment but do not yet establish an advantage over a 2D comparator.
+A standard 3D U-Net with a base width of 8 and affine instance normalization was trained on 145 scans from 26 patients. Validation used 39 scans from six disjoint patients. After 15 initial epochs and 11 refinement epochs, the checkpoint selected by mean validation prostate Dice (0.7560) was frozen. On 27 held-out scans from six patients, it achieved mean scan-level prostate Dice of 0.7732 (SD 0.0557), mean patient-level Dice of 0.7678, and mean HD95 of 6.50 mm using approximate spacing on the resized grid. Pooled precision and recall were 0.7147 and 0.8416, respectively; the pooled predicted-to-reference volume ratio was 1.1775, indicating an oversegmentation tendency. Three scans had Dice below 0.70. In the aligned shared-grid evaluation, the implemented 2D comparator achieved higher mean scan Dice (0.8232 versus 0.7732), but more rectal invasion (400 versus 21 voxels). This compares two training pipelines with differing capacity and preprocessing and does not isolate convolution dimensionality.
 
 ## 11. 提交前剩余事项
 
 - 五张展示图的成功与失败分析已完成，后续与 2D 的相同病例结果联动比较。
-- 取得 2D 训练结果，冻结其最优模型，再做独立测试和共同空间对比。
+- 2D 模型冻结、独立测试及共同空间对比已完成；保留这次结果，不针对测试集调参。
 - 将本记录内容整合进最终课程报告，保留完整 AI 使用说明；本文件不是已经排版完成的最终报告。

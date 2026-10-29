@@ -1,9 +1,11 @@
-# HipMRI 2D U-Net comparison: dataset module
+# Standard 2D U-Net: baseline comparison
 
 This directory contains the 2D data loader, standard U-Net, training and
 frozen-checkpoint evaluation/prediction scripts. Training job 716367 completed
 at epoch 13; its selected epoch-5 mean validation prostate Dice is **0.834130**.
-Held-out test results remain pending and must not be inferred from validation.
+**Held-out native 2D test Dice is 0.825359**, meeting the 0.75 mean target.
+On the shared grid, 2D Dice is 0.823198 versus 3D 0.773216. These scopes are
+reported separately in the [completed result record](support/artifacts/final_test_2d/README.md).
 
 ## Training
 
@@ -35,6 +37,13 @@ resource request. No job is submitted automatically.
 .\.venv\Scripts\python.exe recognition/UNet2D_s4984160/train.py --data-dir D:/HipMRI --output-dir recognition/UNet2D_s4984160/results/baseline --device cpu
 ```
 
+Recorded cluster training curve (13 epochs; best checkpoint at epoch 5):
+
+![Training loss and validation prostate Dice](support/artifacts/training_716367/training_plot.png)
+
+Original CSV/configuration and curve interpretation are in the
+[training record](support/artifacts/training_716367/README.md).
+
 The output directory must be new. Outputs include `config.json`, the exact
 `patient_split.json`, a source snapshot, per-epoch `history.csv`,
 `best_model.pt`, `last_model.pt` and `training_summary.json`. Checkpoints
@@ -47,8 +56,8 @@ averages of batch objectives; soft Dice loss itself is batch aggregated.
 
 Do not infer success from completed epochs: inspect the recorded prostate
 validation Dice and then evaluate the selected checkpoint once on held-out
-patients. The recorded run reached validation Dice 0.834130, but held-out
-test threshold achievement is not yet established.
+patients. The recorded run reached validation Dice 0.834130; the subsequent
+independent test reached native mean Dice 0.825359.
 
 ## Cluster handoff and 3D comparison
 
@@ -61,7 +70,7 @@ The smoke run and formal training have separate output directories.
 
 The final report and comparison tables are maintained in the
 [3D project README](../UNet3D_s4984160/README.md). Use the fixed
-[comparison protocol](../UNet3D_s4984160/support/docs/comparison_protocol.md) before filling
+[comparison protocol](../UNet3D_s4984160/support/docs/comparison_protocol.md) for the completed
 shared-grid metrics. Native 2D 60-slice scores and aligned 30-plane scores
 have separate tables. Improved 2D U-Net is only an optional empty comparison
 row; it is not implemented or scheduled by this handoff. Do not launch another
@@ -85,7 +94,7 @@ the ignored `results/` directory.
 
 ## Model
 
-`UNet2D(in_channels=1, num_classes=6, base_features=16)` uses four max-pooling levels, double convolutions with BatchNorm/ReLU, transposed-convolution upsampling and skip concatenations. It returns raw logits at the input spatial size; do not apply softmax before CrossEntropyLoss. The default width is reduced from the author's draft width of 64 to 16 to reduce CPU cost, with no architectural enhancements. Use `base_features=64` to restore the original width. Actual training speed and segmentation accuracy remain to be measured. Record the width in saved checkpoint configuration so evaluation reconstructs the same model.
+`UNet2D(in_channels=1, num_classes=6, base_features=16)` uses four max-pooling levels, double convolutions with BatchNorm/ReLU, transposed-convolution upsampling and skip concatenations. It returns raw logits at the input spatial size; do not apply softmax before CrossEntropyLoss. The default width was reduced from the author's draft width of 64 to 16, with no architectural enhancements. The recorded GPU run used width 16, now verified in the selected checkpoint; `base_features=64` restores the original draft width. Training history and measured segmentation scores are archived in `support/artifacts/`. Isolated inference latency and memory were not profiled. Record the width in saved checkpoint configuration so evaluation reconstructs the same model.
 
 ```python
 from modules import UNet2D
@@ -151,3 +160,12 @@ The original 3D headers use L/P/S axes; the matched planes are coronal. The slic
 Run `python -m unittest discover -s recognition/UNet2D_s4984160/tests -v` from the repository root with NumPy, NiBabel and PyTorch installed. Tests create synthetic NIfTI fixtures; they do not use patient images. Synthetic tests check loading behavior, not full real-data correctness or model performance.
 
 The loader, model and training loop were adapted from the author's submitted drafts, with AI assistance reviewing directory pairing, explicit split handling, normalization/padding, input validation, model width, scan-level metric aggregation, checkpointing and checks. General CE/Adam/early-stopping ideas were also discussed in the author's linked reference conversation; the linked friend's implementation was not used. The author's original attachments were preserved. No friend's implementation, model weights, experimental scores or report text are included. Final project documentation will need the full AI-use disclosure, exact environment versions and measured experimental results.
+
+## Completed test result
+
+Evaluation 716656 saved all five paired figures and both completion markers.
+The shared GT matched for all 27 scans. 2D improves scan-average Dice in 21/27
+cases, but has more rectal invasion (400 versus 21 shared voxels) and does not
+win every patient. Keep the selected checkpoint frozen. See the
+[result and case analysis](support/artifacts/final_test_2d/README.md) and the
+[main comparative report](../UNet3D_s4984160/README.md).

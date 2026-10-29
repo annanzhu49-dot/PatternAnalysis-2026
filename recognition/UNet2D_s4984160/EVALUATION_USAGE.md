@@ -1,5 +1,9 @@
 # Frozen 2D evaluation and paired 3D comparison
 
+Completed job 716656: native test Dice **0.825359**, shared 2D/3D Dice
+**0.823198 / 0.773216**. Results and paired figures are in
+[the archived result record](support/artifacts/final_test_2d/README.md).
+
 Selected checkpoint: formal run 716367, epoch 5, mean validation prostate
 Dice 0.8341295702 across 39 scans. It is not a test result. SHA256:
 

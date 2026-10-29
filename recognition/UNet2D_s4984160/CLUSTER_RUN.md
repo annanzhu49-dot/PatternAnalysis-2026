@@ -1,10 +1,22 @@
 # 2D baseline submission: 716367
 
+## Shared terminal requirement
+
+All subsequent cluster operations must be visible in the user's existing
+tmux session `codex-714278`, not an independent SSH shell. Current shared
+directory is `~/PatternAnalysis-2026/recognition/UNet2D_s4984160`.
+Both sides may type; leave a prompt for the user and avoid simultaneous input.
+If attaching from a terminal with TERM=dumb, use
+`TERM=xterm-256color tmux attach-session -t codex-714278`.
+The session was resynchronized after evaluation submission 716656; a visible
+query showed it pending for Priority. No background polling was started.
+
 Submitted to Rangpur on 2026-10-30 (Australia/Brisbane). Job **716367** completed
 successfully (exit 0:0) in 00:17:31 on a100-8. It stopped at epoch 13 after
 eight epochs without improvement. Best epoch 5: mean validation prostate Dice
 0.8341295702 over 39 scans; precision 0.8490039442, recall 0.8047404765,
-pooled predicted/GT volume ratio 0.9478642379. Held-out test is not yet evaluated.
+pooled predicted/GT volume ratio 0.9478642379. Subsequent frozen evaluation 716656 completed with native test Dice 0.825359;
+shared-grid 2D/3D Dice were 0.823198 / 0.773216. See the completed result record.
 
 Selected checkpoint SHA256:
 `3a666e057827897d294d9df9604ac325617fa874bf541402011537847024174b`.

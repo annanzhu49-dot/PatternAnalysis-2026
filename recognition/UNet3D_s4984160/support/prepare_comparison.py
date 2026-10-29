@@ -14,6 +14,7 @@ import statistics
 ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE = ROOT / 'support/artifacts/final_test_3d'
 OUTPUT = ROOT / 'support/comparison'
+ARCHIVE_2D = ROOT.parent / 'UNet2D_s4984160/support/artifacts/final_test_2d'
 START = '<!-- BEGIN GENERATED COMPARISON -->'
 END = '<!-- END GENERATED COMPARISON -->'
 
@@ -69,6 +70,8 @@ def score_rows(rows):
 
 
 def verify_summary(observed, expected):
+    if len(observed) != 6 or len(expected) != 6:
+        raise ValueError('Expected all six classes')
     for actual, frozen in zip(observed, expected):
         for key, value in actual.items():
             if isinstance(value, float):
@@ -76,6 +79,182 @@ def verify_summary(observed, expected):
                     raise ValueError(f'Summary mismatch: class {actual["class_id"]}, {key}')
             elif value != frozen[key]:
                 raise ValueError(f'Summary mismatch: {key}')
+
+
+def load_completed_2d(reference, reference_full_rows, reference_shared_rows, entries, report):
+    """Verify the completed paired experiment independently from its CSV counts."""
+    if not (ARCHIVE_2D/'summary.json').exists():
+        return None
+    summary = json.loads((ARCHIVE_2D/'summary.json').read_text(encoding='utf-8'))
+    if not (summary['test_evaluated'] and summary['shared_gt_all_voxels_equal']
+            and summary['reference_counts_match_archive']):
+        raise ValueError('Completed 2D test/alignment evidence missing')
+    if summary['reference_checkpoint_sha256'] != reference['checkpoint_sha256']:
+        raise ValueError('Paired experiment used a different 3D reference')
+    if summary['checkpoint_epoch'] != 5 or summary['checkpoint_sha256'] != (
+            '3a666e057827897d294d9df9604ac325617fa874bf541402011537847024174b'):
+        raise ValueError('Unexpected selected 2D checkpoint')
+    if summary['shared_grid'] != [64,128,30] or summary['shared_W_indices'] != list(range(49,79)):
+        raise ValueError('Unexpected paired grid')
+    expected = {(r['case'], r['patient_id'], r['class_id']) for r in reference_full_rows}
+    names = dict(native_2d='native_2d_per_case_metrics.csv',
+                 shared_2d='shared_2d_per_case_metrics.csv',
+                 shared_3d='reference_3d_shared_metrics.csv')
+    scopes = {}
+    for scope, name in names.items():
+        rows = read_csv(ARCHIVE_2D/name)
+        if {(r['case'], r['patient_id'], r['class_id']) for r in rows} != expected:
+            raise ValueError(f'{scope}: cohort differs from original 3D test')
+        metrics = score_rows(rows)
+        verify_summary(metrics, summary[scope]['class_metrics'])
+        prostate = [r for r in rows if r['class_id'] == '5']
+        distances = [float(r['hd95_mm']) for r in prostate if r['hd95_status']=='ok']
+        frozen = summary[scope]
+        if (frozen['scans'], frozen['patients']) != (27,6):
+            raise ValueError('Unexpected scope cohort')
+        if len(distances) != frozen['prostate_hd95_valid_cases'] or not math.isclose(
+                mean(distances), frozen['prostate_mean_hd95_mm'], abs_tol=1e-12):
+            raise ValueError(f'{scope}: HD95 disagrees')
+        if len(prostate)-len(distances) != frozen['prostate_hd95_invalid_cases']:
+            raise ValueError('HD95 validity count differs')
+        for key in ('prostate_fp_in_bladder','prostate_fp_in_rectum'):
+            if sum(int(r[key]) for r in prostate) != frozen[key]:
+                raise ValueError(f'{scope}: invasion count differs')
+        scopes[scope] = dict(metrics=metrics, rows=rows,
+                             cases={r['case']:r for r in prostate})
+    prior = {(r['case'],r['class_id']):r for r in reference_shared_rows}
+    for r in scopes['shared_3d']['rows']:
+        original = prior[(r['case'],r['class_id'])]
+        if any(int(r[k]) != int(original[k]) for k in ('tp','fp','fn')):
+            raise ValueError('Reinferred shared 3D counts differ from original archive')
+    gt = {(r['case'],r['class_id']):r['gt_voxels'] for r in scopes['shared_3d']['rows']}
+    if any(r['gt_voxels'] != gt[(r['case'],r['class_id'])] for r in scopes['shared_2d']['rows']):
+        raise ValueError('2D/3D shared GT count mismatch')
+    paired = read_csv(ARCHIVE_2D/'paired_cases.csv')
+    if len(paired)!=27 or len({r['case'] for r in paired})!=27:
+        raise ValueError('Missing or duplicate paired cases')
+    for r in paired:
+        if int(r['gt_mismatch_voxels'])!=0:
+            raise ValueError('Shared GT mismatch')
+        for key,scope in [('native_2d_dice','native_2d'),('shared_2d_dice','shared_2d'),('shared_3d_dice','shared_3d')]:
+            if not math.isclose(float(r[key]),float(scopes[scope]['cases'][r['case']]['dice']),abs_tol=1e-12):
+                raise ValueError('Paired Dice differs from scope rows')
+        if not math.isclose(float(r['delta_2d_minus_3d']),float(r['shared_2d_dice'])-float(r['shared_3d_dice']),abs_tol=1e-12):
+            raise ValueError('Paired delta differs')
+    for key,field in [('gt_scans','gt_touches_shared_W_boundary'),
+                      ('prediction_2d_scans','prediction_2d_touches_shared_W_boundary'),
+                      ('prediction_3d_scans','prediction_3d_touches_shared_W_boundary')]:
+        if sum(r[field]=='True' for r in paired)!=summary['shared_boundary_touches'][key]:
+            raise ValueError('Boundary contact count differs')
+    for item in entries:
+        if item['model']=='improved_2d_unet':continue
+        if item['model']=='standard_3d_unet' and item['region']=='full_volume':continue
+        scope = 'shared_3d' if item['model']=='standard_3d_unet' else (
+            'shared_2d' if item['region']=='shared_band' else 'native_2d')
+        data=summary[scope]; metrics=scopes[scope]['metrics'][5]
+        item.update(status='measured', **{k:metrics[k] for k in metrics if k in item},
+                    hd95_mm=data['prostate_mean_hd95_mm'],
+                    fp_in_bladder=data['prostate_fp_in_bladder'],fp_in_rectum=data['prostate_fp_in_rectum'])
+    patient_rows=[]
+    for patient in sorted({r['patient_id'] for r in paired}):
+        group=[r for r in paired if r['patient_id']==patient]
+        a=mean([float(r['shared_2d_dice']) for r in group]);b=mean([float(r['shared_3d_dice']) for r in group])
+        patient_rows.append(dict(patient_id=patient,scans=len(group),shared_2d_dice=a,shared_3d_dice=b,delta_2d_minus_3d=a-b))
+    deltas=[float(r['delta_2d_minus_3d']) for r in paired]
+    result=dict(mean_scan_delta=mean(deltas),median_scan_delta=statistics.median(deltas),
+                mean_patient_delta=mean([r['delta_2d_minus_3d'] for r in patient_rows]),
+                scans_2d_higher=sum(d>1e-8 for d in deltas),scans_3d_higher=sum(d< -1e-8 for d in deltas),
+                patients_2d_higher=sum(r['delta_2d_minus_3d']>1e-8 for r in patient_rows),
+                native_2d_scans_below_075=sum(float(r['native_2d_dice'])<.75 for r in paired))
+    native=scopes['native_2d']['metrics'][5]['mean_case_dice']
+    if summary['native_2d_target_met'] != (native>=.75):raise ValueError('Target status differs')
+    report.update(checkpoint_2d_sha256=summary['checkpoint_sha256'],
+                  sources_2d_sha256={name:hashlib.sha256((ARCHIVE_2D/name).read_bytes()).hexdigest()
+                    for name in ['summary.json',*names.values(),'paired_cases.csv']},
+                  shared_hd95_and_organ_confusion='Independently measured in frozen paired job 716656',
+                  shared_2d_alignment_status='Exact GT equality for all 27 scans; reference counts match archive',
+                  shared_boundary_touches=summary['shared_boundary_touches'],
+                  paired_descriptive_results=result,
+                  ranking_status='Descriptive comparison of these pipelines, not an isolated dimensionality ablation')
+    return dict(summary=summary,scopes=scopes,paired=paired,patients=patient_rows,descriptive=result)
+
+
+def completed_tables(reference, full, shared, completed):
+    s=completed['summary']; scopes=completed['scopes']; d=completed['descriptive']
+    a=scopes['shared_2d']['metrics'][5];b=scopes['shared_3d']['metrics'][5];n=scopes['native_2d']['metrics'][5]
+    lines=['## Model comparison: complete volume and shared band','',
+           'Frozen held-out evaluation job **716656** completed. All 27 shared GT grids',
+           'matched voxel-for-voxel, and re-inferred 3D overlap counts reproduced the archive.',
+           'The 2D native task and paired shared-grid task remain separate below.',
+           'Improved 2D U-Net is optional and was not implemented or scheduled.','',
+           '### A. Complete-volume 3D reference','',
+           '| Scope | Patients/scans | Mean scan Dice ± SD | Mean IoU | HD95 (approx. mm) | Pooled volume ratio |',
+           '| --- | ---: | ---: | ---: | ---: | ---: |',
+           f'| Standard 3D; full 64×128×128 grid | 6 / 27 | {full[5]["mean_case_dice"]:.4f} ± {full[5]["std_case_dice"]:.4f} | {full[5]["mean_case_iou"]:.4f} | {reference["prostate_mean_hd95_mm"]:.2f} | {full[5]["pooled_volume_ratio"]:.4f} |','',
+           '### B. Paired shared-grid prostate results','',
+           '| Model | Mean scan Dice ± SD | Mean patient Dice | Mean IoU | HD95 (approx. mm) | Pooled precision / recall | Pred/GT ratio | FP in bladder / rectum |',
+           '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
+    for name,scope in [('Standard 3D U-Net','shared_3d'),('Standard 2D U-Net','shared_2d')]:
+        c=scopes[scope]['metrics'][5];v=s[scope]
+        lines.append(f'| {name} | {c["mean_case_dice"]:.4f} ± {c["std_case_dice"]:.4f} | {c["mean_patient_dice"]:.4f} | {c["mean_case_iou"]:.4f} | {v["prostate_mean_hd95_mm"]:.2f} | {c["pooled_precision"]:.4f} / {c["pooled_recall"]:.4f} | {c["pooled_volume_ratio"]:.4f} | {v["prostate_fp_in_bladder"]} / {v["prostate_fp_in_rectum"]} |')
+    lines += ['| Improved 2D (optional, not run) | — | — | — | — | — | — | — |','',
+              f'2D has higher Dice in **{d["scans_2d_higher"]}/27 scans**; its mean scan gain is',
+              f'**{100*d["mean_scan_delta"]:.2f} percentage points**. The gain falls to',
+              f'**{100*d["mean_patient_delta"]:.2f} points** when weighting the six patients equally;',
+              f'{d["patients_2d_higher"]}/6 patients favour 2D. Multiple weeks from one patient are correlated,',
+              'so 27 scans are not 27 independent patients. These are descriptive results,',
+              'without a statistical superiority claim.','',
+              'Shared scope: D=64, H=128, original full-grid W=49..78 (30 planes),',
+              'corresponding to original Y=98,100,...,156. Shared HD95 and invasion counts',
+              'were computed independently in this paired job, not copied from full-volume',
+              '3D metrics. One 2D prediction (H007 Week0) touches the cropped W boundary;',
+              'no GT or 3D prostate does. Distances refer to approximate resized spacing',
+              'and can be affected by ROI surface truncation.','',
+              '### C. Six-class scope check','',
+              '| Class | 3D full Dice | 3D shared Dice | 2D shared Dice |',
+              '| --- | ---: | ---: | ---: |']
+    for f,r,t in zip(full,shared,scopes['shared_2d']['metrics']):
+        lines.append(f'| {f["class_name"]} | {f["mean_case_dice"]:.4f} | {r["mean_case_dice"]:.4f} | {t["mean_case_dice"]:.4f} |')
+    lines += ['','### D. Fixed-case shared-grid comparison','',
+              '| Case | 3D Dice | 2D Dice | 2D minus 3D |', '| --- | ---: | ---: | ---: |']
+    for case in read_csv(ARCHIVE/'case_review_metrics.csv'):
+        r=next(r for r in completed['paired'] if r['case']==case['case'])
+        lines.append(f'| {case["case"].replace("_LFOV.nii.gz", "")} | {float(r["shared_3d_dice"]):.4f} | {float(r["shared_2d_dice"]):.4f} | {float(r["delta_2d_minus_3d"]):+.4f} |')
+    lines += ['', 'The paired overlays are in the [completed 2D result record](../UNet2D_s4984160/support/artifacts/final_test_2d/README.md).',
+              'They reuse the same five cases and positions, without selecting new favourable examples.','',
+              '### E. Resource profile and confounders','',
+              '| Model | Parameters | Inference precision / GPU | Forward latency | Peak inference allocation |',
+              '| --- | ---: | --- | --- | --- |',
+              f'| Standard 3D | {reference["parameters"]:,} | BF16 / A100 40GB | {reference["median_forward_latency_ms"]:.2f} ms median/volume | {reference["peak_allocated_gpu_gb"]:.4f} GiB |',
+              f'| Standard 2D | {s["parameters_2d"]:,} | FP32 / A100 40GB | Not profiled | Not profiled |','',
+              '3D latency is forward-only; the paired evaluation did not measure 2D runtime',
+              'or memory in isolation. The models were co-resident for comparison, so total',
+              'allocation would not be a valid isolated-model profile. Per-slice timing',
+              'cannot be compared with 3D per-volume timing. Precision, resolution,',
+              'normalization, width/depth, sampling and training differ. This compares the',
+              'implemented pipelines and does not isolate a causal benefit of convolution dimension.','',
+              '### F. Native 2D task (all 60 unpadded slices per scan)','',
+              '| Model | Patients/scans/slices | Mean scan Dice ± SD | Mean patient Dice | Mean IoU | Native-band HD95 (mm) |',
+              '| --- | ---: | ---: | ---: | ---: | ---: |',
+              f'| Standard 2D | 6 / 27 / 1620 | {n["mean_case_dice"]:.4f} ± {n["std_case_dice"]:.4f} | {n["mean_patient_dice"]:.4f} | {n["mean_case_iou"]:.4f} | {s["native_2d"]["prostate_mean_hd95_mm"]:.2f} |',
+              '| Improved 2D (optional, not run) | — | — | — | — | — |','',
+              f'The native 2D mean exceeds the 0.75 target; {d["native_2d_scans_below_075"]}/27 scans remain below 0.75.',
+              'Native metrics use the original valid pixels and original 3D affine spacing',
+              'for the supplied partial band. They are not full-volume 3D scores and must',
+              'not be substituted into the shared-grid table.','',
+              '### Interpretation','',
+              '2D improves mean overlap, precision and mean HD95, with less total excess',
+              'volume. However, shared-grid rectal invasion is **400 voxels versus 21**',
+              'for 3D, and bladder invasion is 110 versus 89. 3D has higher pooled recall',
+              '(0.8416 versus 0.8093). H007 Week0 is an important 2D failure, not hidden',
+              'by the better average. Keep both models frozen; use the remaining errors',
+              'for reporting and future validation experiments, not test-set tuning.','',
+              'Rules: [comparison protocol](support/docs/comparison_protocol.md).',
+              'Auditable outputs: [metrics.json](support/comparison/metrics.json),',
+              '[metrics.csv](support/comparison/metrics.csv), and',
+              '[patient_comparison.csv](support/comparison/patient_comparison.csv).',
+              'Regenerate with `python -m support.prepare_comparison` (local records only).','']
+    return '\n'.join(lines)
 
 
 def main():
@@ -142,11 +321,16 @@ def main():
                   shared_hd95_and_organ_confusion='not measured in shared-band CSV',
                   shared_2d_alignment_status='pending actual 2D predictions and exact GT grid check',
                   ranking_status='no paired ranking until aligned 2D test evaluation')
+    completed = load_completed_2d(summary,full_rows,shared_rows,entries,report)
     OUTPUT.mkdir(exist_ok=True)
     (OUTPUT/'metrics.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
     with (OUTPUT/'metrics.csv').open('w', newline='', encoding='utf-8') as stream:
         writer = csv.DictWriter(stream, fieldnames=list(entries[0]))
         writer.writeheader(); writer.writerows(entries)
+    if completed:
+        with (OUTPUT/'patient_comparison.csv').open('w',newline='',encoding='utf-8') as stream:
+            writer=csv.DictWriter(stream,fieldnames=list(completed['patients'][0]))
+            writer.writeheader();writer.writerows(completed['patients'])
 
     lines = ['## Model comparison: complete volume and shared band', '',
              'The tables below separate measured scopes. Pending is not a score of zero.',
@@ -211,6 +395,8 @@ def main():
               '[comparison/metrics.csv](support/comparison/metrics.csv). Regenerate with',
               '`python -m support.prepare_comparison`; this only reads archived local records.', '']
     section = '\n'.join(lines)
+    if completed:
+        section = completed_tables(summary,full,shared,completed)
     readme_path = ROOT/'README.md'
     readme = readme_path.read_text(encoding='utf-8')
     block = START+'\n'+section+END
@@ -222,7 +408,8 @@ def main():
         marker = '## Qualitative error analysis: five held-out cases'
         readme = readme.replace(marker, block+'\n\n'+marker)
     readme_path.write_text(readme, encoding='utf-8')
-    print('Verified both 162-row scopes against frozen summary; wrote tables and README. No inference/jobs.')
+    print('Verified archived scopes'+(' and completed paired 2D test records' if completed else '')+
+          '; wrote tables and README. No inference/jobs.')
 
 
 if __name__ == '__main__':

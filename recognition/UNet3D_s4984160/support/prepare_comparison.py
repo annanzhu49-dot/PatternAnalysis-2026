@@ -267,7 +267,7 @@ def completed_tables(reference, full, shared, completed, resources):
            'Frozen held-out evaluation job **716656** completed. All 27 shared GT grids',
            'matched voxel-for-voxel, and re-inferred 3D overlap counts reproduced the archive.',
            'The 2D native task and paired shared-grid task remain separate below.',
-           'Improved 2D U-Net is optional and was not implemented or scheduled.','',
+           'Only the two implemented standard models are compared.','',
            '### A. Complete-volume 3D reference','',
            '| Scope | Patients/scans | Mean scan Dice ± SD | Mean IoU | HD95 (approx. mm) | Pooled volume ratio |',
            '| --- | ---: | ---: | ---: | ---: | ---: |',
@@ -278,7 +278,7 @@ def completed_tables(reference, full, shared, completed, resources):
     for name,scope in [('Standard 3D U-Net','shared_3d'),('Standard 2D U-Net','shared_2d')]:
         c=scopes[scope]['metrics'][5];v=s[scope]
         lines.append(f'| {name} | {c["mean_case_dice"]:.4f} ± {c["std_case_dice"]:.4f} | {c["mean_patient_dice"]:.4f} | {c["mean_case_iou"]:.4f} | {v["prostate_mean_hd95_mm"]:.2f} | {c["pooled_precision"]:.4f} / {c["pooled_recall"]:.4f} | {c["pooled_volume_ratio"]:.4f} | {v["prostate_fp_in_bladder"]} / {v["prostate_fp_in_rectum"]} |')
-    lines += ['| Improved 2D (optional, not run) | — | — | — | — | — | — | — |','',
+    lines += ['',
               f'2D has higher Dice in **{d["scans_2d_higher"]}/27 scans**; its mean scan gain is',
               f'**{100*d["mean_scan_delta"]:.2f} percentage points**. The gain falls to',
               f'**{100*d["mean_patient_delta"]:.2f} points** when weighting the six patients equally;',
@@ -292,10 +292,10 @@ def completed_tables(reference, full, shared, completed, resources):
               'no GT or 3D prostate does. Distances refer to approximate resized spacing',
               'and can be affected by ROI surface truncation.','',
               '### C. Six-class scope check','',
-              '| Class | 3D full Dice | 3D shared Dice | 2D shared Dice |',
+              '| Class | 3D full Dice / IoU | 3D shared Dice / IoU | 2D shared Dice / IoU |',
               '| --- | ---: | ---: | ---: |']
     for f,r,t in zip(full,shared,scopes['shared_2d']['metrics']):
-        lines.append(f'| {f["class_name"]} | {f["mean_case_dice"]:.4f} | {r["mean_case_dice"]:.4f} | {t["mean_case_dice"]:.4f} |')
+        lines.append(f'| {f["class_name"]} | {f["mean_case_dice"]:.4f} / {f["mean_case_iou"]:.4f} | {r["mean_case_dice"]:.4f} / {r["mean_case_iou"]:.4f} | {t["mean_case_dice"]:.4f} / {t["mean_case_iou"]:.4f} |')
     lines += ['','### D. Fixed-case shared-grid comparison','',
               '| Case | 3D Dice | 2D Dice | 2D minus 3D |', '| --- | ---: | ---: | ---: |']
     for case in read_csv(ARCHIVE/'case_review_metrics.csv'):
@@ -308,7 +308,7 @@ def completed_tables(reference, full, shared, completed, resources):
               '| Model | Patients/scans/slices | Mean scan Dice ± SD | Mean patient Dice | Mean IoU | Native-band HD95 (mm) |',
               '| --- | ---: | ---: | ---: | ---: | ---: |',
               f'| Standard 2D | 6 / 27 / 1620 | {n["mean_case_dice"]:.4f} ± {n["std_case_dice"]:.4f} | {n["mean_patient_dice"]:.4f} | {n["mean_case_iou"]:.4f} | {s["native_2d"]["prostate_mean_hd95_mm"]:.2f} |',
-              '| Improved 2D (optional, not run) | — | — | — | — | — |','',
+              '',
               f'The native 2D mean exceeds the 0.75 target; {d["native_2d_scans_below_075"]}/27 scans remain below 0.75.',
               'Native metrics use the original valid pixels and original 3D affine spacing',
               'for the supplied partial band. They are not full-volume 3D scores and must',

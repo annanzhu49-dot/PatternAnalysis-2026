@@ -92,3 +92,12 @@ the final report should retain the full project AI-use disclosure.
 See [the five-case analysis](../../CASE_ANALYSIS.md) and
 [`case_review_metrics.csv`](case_review_metrics.csv) for reviewed observations,
 boundary-region counts, selection reasons and figure hashes.
+
+## Comparison scopes
+
+The [comparison tables](../../comparison/RESULTS.md) keep this complete-volume
+result separate from the measured shared-band overlap scores. Shared-band HD95
+and organ-confusion counts were not measured in the archived band CSV and
+remain blank. Native 2D test scores also remain blank until a frozen 2D
+checkpoint is independently evaluated. The
+[protocol](../../COMPARISON_PROTOCOL.md) fixes the patient and grid alignment rules.

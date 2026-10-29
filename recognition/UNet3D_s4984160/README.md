@@ -5,6 +5,30 @@ six patients. Validation checkpoint-selection Dice: **0.755972**. See
 [the final experiment record](experiment_notes/final_test_refine_v2/README.md)
 for original results, limitations, configuration and five prediction figures.
 
+## Read the completed experiment
+
+- [完整实验记录（中文）](EXPERIMENT_REPORT.md): each step mapped to its source
+  file, data preprocessing/split, actual architecture, two-stage training,
+  six-class results, prostate error analysis and a report-ready English paragraph.
+- [Original results and figures](experiment_notes/final_test_refine_v2/README.md):
+  archived JSON/CSV, configuration, training history and five PNG examples.
+- [Evaluation definitions](EVALUATION_USAGE.md): aggregation, HD95 conventions,
+  example selection and inference timing boundaries.
+
+| Prostate metric | Held-out test result |
+| --- | ---: |
+| Mean scan Dice ± SD | 0.7732 ± 0.0557 |
+| Mean patient Dice | 0.7678 |
+| Mean HD95, approximate resized-grid mm | 6.50 |
+| Pooled precision / recall | 0.7147 / 0.8416 |
+| Pooled predicted / GT volume ratio | 1.1775 |
+| Prostate FP voxels in GT bladder / rectum | 89 / 21 |
+| Scans with Dice below 0.70 | 3 / 27 |
+
+The mean meets the 0.70 target; not every scan does. Predicted volume exceeds
+GT by 17.75% in aggregate. Figure generation is complete, but detailed visual
+case interpretation and the final aligned 2D comparison remain to be completed.
+
 ## Files used for the final experiment
 
 - `modules.py` and `dataset.py`: standard network and 3D preprocessing/split.

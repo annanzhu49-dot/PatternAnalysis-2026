@@ -1,5 +1,9 @@
 # Frozen standard 3D U-Net: held-out test result
 
+For a complete source-to-method explanation, training trajectory, six-class
+result table and report-ready interpretation, see
+[完整实验记录（中文）](../../EXPERIMENT_REPORT.md).
+
 Evaluation job 715670 completed on 2026-10-30 (Australia/Brisbane). The
 checkpoint was selected using validation data, then frozen before testing.
 This directory preserves the cluster's original JSON/CSV outputs, refinement

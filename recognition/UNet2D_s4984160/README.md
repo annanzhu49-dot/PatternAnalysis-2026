@@ -1,6 +1,20 @@
 # HipMRI 2D U-Net comparison: dataset module
 
-This directory currently contains the independently reviewed 2D data loader. A 2D model and training/evaluation results have not yet been implemented here.
+This directory contains the independently reviewed 2D data loader and standard 2D U-Net in `modules.py`. Training/evaluation scripts and real-data 2D results are not yet available here.
+
+## Model
+
+`UNet2D(in_channels=1, num_classes=6, base_features=16)` uses four max-pooling levels, double convolutions with BatchNorm/ReLU, transposed-convolution upsampling and skip concatenations. It returns raw logits at the input spatial size; do not apply softmax before CrossEntropyLoss. The default width is reduced from the author's draft width of 64 to 16 to reduce CPU cost, with no architectural enhancements. Use `base_features=64` to restore the original width. Actual training speed and segmentation accuracy remain to be measured. Record the width in saved checkpoint configuration so evaluation reconstructs the same model.
+
+```python
+from modules import UNet2D
+
+model = UNet2D()
+logits = model(image)  # [B,6,256,144] for the loader output
+loss = criterion(logits, mask)  # criterion must ignore label 255
+```
+
+The example uses `image`, `mask` and `criterion` from the loader example below. Call `model.train()` for training and `model.eval()` with `torch.inference_mode()` for validation/prediction because BatchNorm behaves differently in each mode. Masks use labels 0..5; padding label 255 must also be excluded from Dice loss and all metrics.
 
 ## Data layout
 
@@ -55,4 +69,4 @@ The original 3D headers use L/P/S axes; the matched planes are coronal. The slic
 
 Run `python -m unittest discover -s recognition/UNet2D_s4984160/tests -v` from the repository root with NumPy, NiBabel and PyTorch installed. Tests create synthetic NIfTI fixtures; they do not use patient images. Synthetic tests check loading behavior, not full real-data correctness or model performance.
 
-The loader was adapted from the author's submitted draft, with AI assistance reviewing directory pairing, explicit split handling, normalization/padding, input validation and tests. The author's original attachment was preserved. No friend's implementation, model weights, experimental scores or report text are included. Final project documentation will need the full AI-use disclosure, exact environment versions and measured experimental results.
+The loader and model were adapted from the author's submitted drafts, with AI assistance reviewing directory pairing, explicit split handling, normalization/padding, input validation, model width and checks. The author's original attachment was preserved. No friend's implementation, model weights, experimental scores or report text are included. Final project documentation will need the full AI-use disclosure, exact environment versions and measured experimental results.

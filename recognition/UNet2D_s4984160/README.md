@@ -1,6 +1,9 @@
 # HipMRI 2D U-Net comparison: dataset module
 
-This directory contains the independently reviewed 2D data loader, standard 2D U-Net in `modules.py`, and training script `train.py`. Standalone test evaluation/prediction scripts and real-data 2D results are not yet available here.
+This directory contains the 2D data loader, standard U-Net, training and
+frozen-checkpoint evaluation/prediction scripts. Training job 716367 completed
+at epoch 13; its selected epoch-5 mean validation prostate Dice is **0.834130**.
+Held-out test results remain pending and must not be inferred from validation.
 
 ## Training
 
@@ -44,14 +47,16 @@ averages of batch objectives; soft Dice loss itself is batch aggregated.
 
 Do not infer success from completed epochs: inspect the recorded prostate
 validation Dice and then evaluate the selected checkpoint once on held-out
-patients. No real-data training or Dice threshold achievement is claimed yet.
+patients. The recorded run reached validation Dice 0.834130, but held-out
+test threshold achievement is not yet established.
 
 ## Cluster handoff and 3D comparison
 
 The frozen training snapshot was submitted as Rangpur job **716367** using
 `train_baseline.sbatch` (remote name `train_baseline_v1.sbatch`); see
 [CLUSTER_RUN.md](CLUSTER_RUN.md) for the submitted configuration and query commands.
-Submission is confirmed, but completion and actual results are not recorded here.
+The run completed successfully in 17 minutes 31 seconds on a100-8. Epoch 5
+was best; eight subsequent epochs did not improve the validation prostate Dice.
 The smoke run and formal training have separate output directories.
 
 The final report and comparison tables are maintained in the
@@ -61,6 +66,22 @@ shared-grid metrics. Native 2D 60-slice scores and aligned 30-plane scores
 have separate tables. Improved 2D U-Net is only an optional empty comparison
 row; it is not implemented or scheduled by this handoff. Do not launch another
 training job merely to populate that optional row.
+
+## Frozen test evaluation and paired figures
+
+[`EVALUATION_USAGE.md`](EVALUATION_USAGE.md) documents `evaluate.py`,
+`evaluation_metrics.py`, `predict.py` and `evaluate_final.sbatch`. The selected
+epoch-5 checkpoint is hash-locked; an exact read-only copy is preserved before
+submission. Native 60-slice 2D metrics and shared 30-plane metrics are separate.
+Shared GT must match the 3D grid exactly. The frozen 3D checkpoint is inferred
+again only to obtain matched-region distances/confusion counts, with its
+overlap counts checked against the archived reference. No training is repeated.
+The five paired figures reuse the cases and positions reviewed for 3D.
+
+`predict.py evaluate <evaluate.py arguments>` supports checkpoint loading and
+inference followed by plotting. `predict.py render` uses already cached arrays
+without another inference pass. Raw caches and weights remain private under
+the ignored `results/` directory.
 
 ## Model
 

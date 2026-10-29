@@ -1,7 +1,16 @@
 # 2D baseline submission: 716367
 
-Submitted to Rangpur on 2026-10-30 (Australia/Brisbane). Submission returned
-job ID **716367**. Training completion and actual Dice are not yet known.
+Submitted to Rangpur on 2026-10-30 (Australia/Brisbane). Job **716367** completed
+successfully (exit 0:0) in 00:17:31 on a100-8. It stopped at epoch 13 after
+eight epochs without improvement. Best epoch 5: mean validation prostate Dice
+0.8341295702 over 39 scans; precision 0.8490039442, recall 0.8047404765,
+pooled predicted/GT volume ratio 0.9478642379. Held-out test is not yet evaluated.
+
+Selected checkpoint SHA256:
+`3a666e057827897d294d9df9604ac325617fa874bf541402011537847024174b`.
+Model configuration: one input channel, six output classes, base width 16.
+The selected checkpoint was checked to be formal (`smoke_only=false`) and
+selected by `mean_scan_prostate_dice`, matching the training history.
 Do not treat the synthetic test output of 0.2 as an experimental score.
 
 Remote directory:

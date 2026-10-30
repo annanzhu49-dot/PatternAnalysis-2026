@@ -266,6 +266,9 @@ def main():
     snapshot = out / 'source_snapshot'; snapshot.mkdir()
     for name in ('train.py', 'modules.py', 'dataset.py'):
         shutil.copyfile(Path(__file__).with_name(name), snapshot / name)
+    snapshot_support = snapshot / 'support'
+    snapshot_support.mkdir()
+    shutil.copyfile(args.split_manifest, snapshot_support / 'patient_split.json')
     model = UNet2D(**config['model_config']).to(args.device)
     print(f'Device={args.device}; parameters={sum(p.numel() for p in model.parameters())}; '
           f'train/val slices={len(train_loader.dataset)}/{len(val_loader.dataset)}; '

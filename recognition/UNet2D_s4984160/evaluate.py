@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader
 
 from dataset import HipMRI2DDataset, get_data_pairs, load_patient_split
 from modules import UNet2D
-from evaluation_metrics import class_metrics, geometry, hd95, summarize
+from support.evaluation_metrics import class_metrics, geometry, hd95, summarize
 
 
 FIXED_CASES = ['B037_Week0_LFOV.nii.gz', 'L011_Week2_LFOV.nii.gz',
@@ -198,8 +198,9 @@ def main(argv=None):
     if tuple(ref_checkpoint['training_config']['target_shape']) != SHAPE:
         raise ValueError('Unexpected frozen 3D preprocessing shape')
     reference_model = make_reference_model(ref_dir, ref_checkpoint)
-    source_hashes = {name:digest(Path(__file__).with_name(name)) for name in
-                     ('evaluate.py','predict.py','evaluation_metrics.py','dataset.py','modules.py')}
+    code_root = Path(__file__).resolve().parent
+    source_hashes = {name:digest(code_root/name) for name in
+                     ('evaluate.py','predict.py','support/evaluation_metrics.py','dataset.py','modules.py')}
     source_hashes.update({f'reference_3d/{name}':digest(ref_dir/name)
                           for name in ('dataset.py','modules.py')})
     reference_dataset = ref_data.HipMRIDataset(pairs, target_shape=SHAPE)

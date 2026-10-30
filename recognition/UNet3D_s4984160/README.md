@@ -133,7 +133,7 @@ and parameter counts are explicit comparison confounders.
 
 ### 5.1 Standard 3D baseline
 
-The initial stage is `support/training/scratch.py`; root `train.py` is the final
+The initial stage is `support/train_phase1/scratch.py`; root `train.py` is the final
 refinement stage. The first stage stopped after 15 epochs under its validation
 plateau rule. Prostate validation Dice was zero, although other classes had
 learned. Refinement loaded epoch-15 **last_model.pt**, reset the optimizer,
@@ -179,24 +179,24 @@ and hard-label whole-scan evaluation are different quantities.
 
 ### 5.3 3D training evidence
 
-![Existing 3D training loss and validation Dice](support/artifacts/training_3d/training_curves.png)
+![Existing 3D training loss and validation Dice](support/saved_results/training_results/training_curves.png)
 
 The plot uses the original 15 initial and 11 refinement epochs. Training
 objectives have phase-specific weights, so they are plotted as separate lines.
 Validation loss was not logged; the recorded validation metric is prostate
 Dice. The selected point is cumulative epoch 26. Source values and hashes
-are preserved in [the 3D training record](support/artifacts/training_3d/README.md).
+are preserved in [the 3D training record](support/saved_results/training_results/README.md).
 
 ### 5.4 2D baseline training evidence
 
-![2D loss and validation Dice](../UNet2D_s4984160/support/artifacts/training_716367/training_plot.png)
+![2D loss and validation Dice](../UNet2D_s4984160/support/saved_results/training_results/training_plot.png)
 
 The baseline stopped after 13 epochs without improving on epoch 5 (validation
 prostate Dice 0.8341). Its held-out native score was subsequently 0.8254.
 Training loss continued falling while validation performance plateaued, so
 extra training was not assumed to help. The test set was not used to select
 the epoch. Original training records are preserved in the
-[2D training record](../UNet2D_s4984160/support/artifacts/training_716367/README.md).
+[2D training record](../UNet2D_s4984160/support/saved_results/training_results/README.md).
 
 
 ## 6. Independent evaluation — `evaluate.py`
@@ -291,7 +291,7 @@ and can be affected by ROI surface truncation.
 | K042_Week0 | 0.8525 | 0.8378 | -0.0147 |
 | H007_Week0 | 0.7888 | 0.6686 | -0.1202 |
 
-The paired overlays are in the [completed 2D result record](../UNet2D_s4984160/support/artifacts/final_test_2d/README.md).
+The paired overlays are in the [completed 2D result record](../UNet2D_s4984160/support/saved_results/test_results/README.md).
 They reuse the same five cases and positions, without selecting new favourable examples.
 
 ### E. Resource profile and confounders
@@ -317,7 +317,7 @@ this table uses the new isolated profiling protocol, without replacing segmentat
 Coverage, resolution, normalization, model size and training differ, so these are pipeline
 costs, not an isolated causal test of convolution dimension.
 
-Raw [resource records and prediction example](../UNet2D_s4984160/support/artifacts/resource_717015/README.md).
+Raw [resource records and prediction example](support/saved_results/resource_results/README.md).
 
 ### F. Native 2D task (all 60 unpadded slices per scan)
 
@@ -339,11 +339,11 @@ for 3D, and bladder invasion is 110 versus 89. 3D has higher pooled recall
 by the better average. Keep both models frozen; use the remaining errors
 for reporting and future validation experiments, not test-set tuning.
 
-Rules: [comparison protocol](support/docs/comparison_protocol.md).
-Auditable outputs: [metrics.json](support/comparison/metrics.json),
-[metrics.csv](support/comparison/metrics.csv), and
-[patient_comparison.csv](support/comparison/patient_comparison.csv).
-Regenerate with `python -m support.prepare_comparison` (local records only).
+Rules: [comparison protocol](support/how_to_run/comparison_protocol.md).
+Auditable outputs: [metrics.json](support/compare_results/metrics.json),
+[metrics.csv](support/compare_results/metrics.csv), and
+[patient_comparison.csv](support/compare_results/patient_comparison.csv).
+Verify archived records and refresh comparison JSON/CSV with `python -m support.prepare_comparison`. This does not edit the report.
 <!-- END GENERATED COMPARISON -->
 
 ## Qualitative error analysis: five held-out cases
@@ -356,7 +356,7 @@ Case identities and view positions were fixed from the earlier 3D review.
 
 ### B037 Week0: improved average overlap, but superior omission remains
 
-![B037 paired predictions](../UNet2D_s4984160/support/artifacts/final_test_2d/figures/B037_Week0_LFOV.png)
+![B037 paired predictions](../UNet2D_s4984160/support/saved_results/test_results/figures/B037_Week0_LFOV.png)
 
 Shared Dice rises from 0.6413 to 0.7195 and HD95 falls from 14.65 to 12.49 mm.
 The 2D middle-plane core has green overlap with visible blue missed edges;
@@ -366,7 +366,7 @@ specific extent failure.
 
 ### L011 Week2: less excess prediction, residual superior error
 
-![L011 paired predictions](../UNet2D_s4984160/support/artifacts/final_test_2d/figures/L011_Week2_LFOV.png)
+![L011 paired predictions](../UNet2D_s4984160/support/saved_results/test_results/figures/L011_Week2_LFOV.png)
 
 Shared Dice improves from 0.7088 to 0.8458. The middle-plane 2D contour is less
 expanded than 3D, consistent with the volume ratio falling from 1.6787 to
@@ -376,7 +376,7 @@ not uniform across boundaries.
 
 ### H017 Week3: better precision with remaining undercoverage
 
-![H017 paired predictions](../UNet2D_s4984160/support/artifacts/final_test_2d/figures/H017_Week3_LFOV.png)
+![H017 paired predictions](../UNet2D_s4984160/support/saved_results/test_results/figures/H017_Week3_LFOV.png)
 
 Shared Dice improves from 0.7215 to 0.8158 and HD95 from 6.72 to 3.36 mm.
 The 2D prediction is smaller overall (volume ratio 0.8130), but its precision
@@ -387,7 +387,7 @@ the models, and improved overlap does not remove every organ-confusion error.
 
 ### K042 Week0: 3D retains a small Dice advantage
 
-![K042 paired predictions](../UNet2D_s4984160/support/artifacts/final_test_2d/figures/K042_Week0_LFOV.png)
+![K042 paired predictions](../UNet2D_s4984160/support/saved_results/test_results/figures/K042_Week0_LFOV.png)
 
 Shared Dice is 0.8378 for 2D versus 0.8525 for 3D. 2D has lower recall
 (0.7607 versus 0.8106) and a smaller volume ratio (0.8158 versus 0.9017),
@@ -397,7 +397,7 @@ not produce the same ranking.
 
 ### H007 Week0: important 2D failure and rectal confusion
 
-![H007 paired predictions](../UNet2D_s4984160/support/artifacts/final_test_2d/figures/H007_Week0_LFOV.png)
+![H007 paired predictions](../UNet2D_s4984160/support/saved_results/test_results/figures/H007_Week0_LFOV.png)
 
 Shared Dice falls from 0.7888 for 3D to 0.6686 for 2D; HD95 worsens from 4.47
 to 9.06 mm. The middle-plane 2D error map has red extension toward the GT
@@ -408,7 +408,7 @@ are not limited to the displayed slice. This one case supplies 47.75% of all
 failure is retained rather than hidden by the better 2D average.
 
 
-The original detailed 3D-only review remains in [support/docs/case_analysis.md](support/docs/case_analysis.md). The paired review uses fixed cases and does not replace all-scan numerical evaluation.
+The original detailed 3D-only review remains in [support/how_to_run/case_analysis.md](support/how_to_run/case_analysis.md). The paired review uses fixed cases and does not replace all-scan numerical evaluation.
 
 
 ## 7. Discussion, limitations and engineering recommendation
@@ -455,22 +455,36 @@ evaluation protocol.
 
 ```text
 UNet3D_s4984160/
-├── dataset.py     Data pairing, patient split and preprocessing
-├── modules.py     Standard U-Net components
-├── train.py       Recorded refinement stage
-├── evaluate.py    Frozen-checkpoint evaluation
-├── predict.py     Direct inference or cached rendering
-├── README.md      Consolidated experiment report
-└── support/       Factories, initial training, scripts, records and history
+├── dataset.py
+├── modules.py
+├── train.py                       Phase 2 training
+├── evaluate.py
+├── predict.py
+├── README.md                      Main report
+└── support/
+    ├── baseline_model.py
+    ├── evaluation_utils.py
+    ├── plot_training_curves.py
+    ├── prepare_comparison.py
+    ├── train_phase1/
+    ├── submit_jobs/
+    ├── check_code/
+    ├── how_to_run/
+    ├── saved_results/
+    │   ├── training_results/
+    │   ├── test_results/
+    │   └── resource_results/
+    ├── compare_results/
+    └── old_code_and_notes/
 ```
 
 The reading order is **Dataset → Modules → Train → Evaluate → Predict**.
-Initial training is invoked as `python -m support.training.scratch`; model
+Initial training is invoked as `python -m support.train_phase1.scratch`; model
 normalization is constructed by `support/baseline_model.py`. The independently
 trained 2D implementation is in `../UNet2D_s4984160/`. The cluster used the
 existing `comp3710` account/partition, one GPU and a 1.5-hour limit, without
 extra CPU or RAM requests. Archived source provenance is retained in
-`support/history/source_snapshots.json`; root paths have since been organized.
+`support/old_code_and_notes/source_snapshots.json`; root paths have since been organized.
 
 | Software | Recorded 3D evaluation version |
 | --- | --- |
@@ -498,32 +512,32 @@ implementation behaviour, not real-data segmentation quality.
 
 Requires Python, PyTorch, NumPy, NiBabel, SciPy and Matplotlib. The original
 evaluation environment versions are recorded in
-[summary.json](support/artifacts/final_test_3d/summary.json). Private course data and
+[summary.json](support/saved_results/test_results/summary.json). Private course data and
 weights are not included. Dataset default:
 `/home/groups/comp3710/HipMRI_Study_open`.
 
 From this project directory on the configured cluster:
 
 ```bash
-sbatch support/scripts/train_scratch.sbatch
+sbatch support/submit_jobs/train_scratch.sbatch
 # After initial training finishes and its last checkpoint exists:
-sbatch support/scripts/train_refine.sbatch
+sbatch support/submit_jobs/train_refine.sbatch
 # After the selected refinement checkpoint exists:
-sbatch support/scripts/evaluate.sbatch
+sbatch support/submit_jobs/evaluate.sbatch
 ```
 
 Do not submit the dependent stages concurrently. The Slurm account, partition,
 GPU and 1.5-hour requests are unchanged; only Python entry-point paths changed.
 These examples are for a new run, not an instruction to restart the completed
 experiment. Existing evaluation requires a fresh output directory; see
-[evaluation usage](support/docs/evaluation.md).
+[evaluation usage](support/how_to_run/evaluation.md).
 
 Useful local commands, from this project directory:
 
 ```bash
-python -m support.training.scratch --help
+python -m support.train_phase1.scratch --help
 python train.py --help
-python -m unittest discover -s support/tests -v
+python -m unittest discover -s support/check_code -v
 python -m support.prepare_comparison
 ```
 
@@ -544,21 +558,21 @@ This loads the saved configuration/weights, applies `dataset.py` preprocessing,
 runs inference, prints Dice/HD95 and saves a prediction overlay plus resized
 D,H,W labels and metadata. GT is used for evaluation/visualization, not input
 to the network. A new output directory is required. The original cached-render
-command still works. See [prediction and resource usage](support/docs/resource_profile.md).
+command still works. See [prediction and resource usage](support/how_to_run/resource_profile.md).
 
 Job **717015** verified this direct entry point on B037 Week0: Dice **0.6413**,
 HD95 **14.65 mm**, and all six classes' voxel counts match the archived test.
 This retained failure case shows undercoverage; it does not change the overall
-test Dice of 0.7732. The [direct prediction image and metadata](../UNet2D_s4984160/support/artifacts/resource_717015/README.md)
+test Dice of 0.7732. The [direct prediction image and metadata](support/saved_results/resource_results/README.md)
 provide the completed execution evidence.
 
 The final checkpoint remains on the cluster at `results/refine_v2/best_model.pt`;
 its SHA256 and original metrics are in
-[the result record](support/artifacts/final_test_3d/README.md). Historical early code is
-under `support/history/`, not the current training entry point. Additional references:
-[case analysis in Chinese](support/docs/case_analysis.md),
-[comparison protocol](support/docs/comparison_protocol.md), and
-[2D/3D data mapping](support/docs/data_mapping.md).
+[the result record](support/saved_results/test_results/README.md). Historical early code is
+under `support/old_code_and_notes/`, not the current training entry point. Additional references:
+[case analysis in Chinese](support/how_to_run/case_analysis.md),
+[comparison protocol](support/how_to_run/comparison_protocol.md), and
+[2D/3D data mapping](support/how_to_run/data_mapping.md).
 
 
 ## 9. Artificial Intelligence Usage Disclosure

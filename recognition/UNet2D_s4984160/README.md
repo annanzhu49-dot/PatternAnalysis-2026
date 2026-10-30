@@ -5,7 +5,30 @@ frozen-checkpoint evaluation/prediction scripts. Training job 716367 completed
 at epoch 13; its selected epoch-5 mean validation prostate Dice is **0.834130**.
 **Held-out native 2D test Dice is 0.825359**, meeting the 0.75 mean target.
 On the shared grid, 2D Dice is 0.823198 versus 3D 0.773216. These scopes are
-reported separately in the [completed result record](support/artifacts/final_test_2d/README.md).
+reported separately in the [completed result record](support/saved_results/test_results/README.md).
+
+## Folder guide
+
+```text
+UNet2D_s4984160/
+├── dataset.py
+├── modules.py
+├── train.py
+├── evaluate.py
+├── predict.py
+├── README.md
+└── support/
+    ├── evaluation_metrics.py
+    ├── profile_inference.py
+    ├── patient_split.json
+    ├── submit_jobs/
+    ├── check_code/
+    ├── how_to_run/
+    ├── saved_results/
+    │   ├── training_results/
+    │   └── test_results/
+    └── old_code_and_notes/
+```
 
 ## Training
 
@@ -39,10 +62,10 @@ resource request. No job is submitted automatically.
 
 Recorded cluster training curve (13 epochs; best checkpoint at epoch 5):
 
-![Training loss and validation prostate Dice](support/artifacts/training_716367/training_plot.png)
+![Training loss and validation prostate Dice](support/saved_results/training_results/training_plot.png)
 
 Original CSV/configuration and curve interpretation are in the
-[training record](support/artifacts/training_716367/README.md).
+[training record](support/saved_results/training_results/README.md).
 
 The output directory must be new. Outputs include `config.json`, the exact
 `patient_split.json`, a source snapshot, per-epoch `history.csv`,
@@ -62,15 +85,15 @@ independent test reached native mean Dice 0.825359.
 ## Cluster handoff and 3D comparison
 
 The frozen training snapshot was submitted as Rangpur job **716367** using
-`train_baseline.sbatch` (remote name `train_baseline_v1.sbatch`); see
-[CLUSTER_RUN.md](CLUSTER_RUN.md) for the submitted configuration and query commands.
+`support/submit_jobs/train_baseline.sbatch` (remote name `train_baseline_v1.sbatch`); see
+[CLUSTER_RUN.md](support/how_to_run/CLUSTER_RUN.md) for the submitted configuration and query commands.
 The run completed successfully in 17 minutes 31 seconds on a100-8. Epoch 5
 was best; eight subsequent epochs did not improve the validation prostate Dice.
 The smoke run and formal training have separate output directories.
 
 The final report and comparison tables are maintained in the
 [3D project README](../UNet3D_s4984160/README.md). Use the fixed
-[comparison protocol](../UNet3D_s4984160/support/docs/comparison_protocol.md) for the completed
+[comparison protocol](../UNet3D_s4984160/support/how_to_run/comparison_protocol.md) for the completed
 shared-grid metrics. Native 2D 60-slice scores and aligned 30-plane scores
 have separate tables. Improved 2D U-Net is only an optional empty comparison
 row; it is not implemented or scheduled by this handoff. Do not launch another
@@ -78,8 +101,8 @@ training job merely to populate that optional row.
 
 ## Frozen test evaluation and paired figures
 
-[`EVALUATION_USAGE.md`](EVALUATION_USAGE.md) documents `evaluate.py`,
-`evaluation_metrics.py`, `predict.py` and `evaluate_final.sbatch`. The selected
+[`EVALUATION_USAGE.md`](support/how_to_run/EVALUATION_USAGE.md) documents `evaluate.py`,
+`support/evaluation_metrics.py`, `predict.py` and `support/submit_jobs/evaluate_final.sbatch`. The selected
 epoch-5 checkpoint is hash-locked; an exact read-only copy is preserved before
 submission. Native 60-slice 2D metrics and shared 30-plane metrics are separate.
 Shared GT must match the 3D grid exactly. The frozen 3D checkpoint is inferred
@@ -94,7 +117,7 @@ the ignored `results/` directory.
 
 ## Model
 
-`UNet2D(in_channels=1, num_classes=6, base_features=16)` uses four max-pooling levels, double convolutions with BatchNorm/ReLU, transposed-convolution upsampling and skip concatenations. It returns raw logits at the input spatial size; do not apply softmax before CrossEntropyLoss. The default width was reduced from the author's draft width of 64 to 16, with no architectural enhancements. The recorded GPU run used width 16, now verified in the selected checkpoint; `base_features=64` restores the original draft width. Training history and measured segmentation scores are archived in `support/artifacts/`. Record the width in saved checkpoint configuration so evaluation reconstructs the same model.
+`UNet2D(in_channels=1, num_classes=6, base_features=16)` uses four max-pooling levels, double convolutions with BatchNorm/ReLU, transposed-convolution upsampling and skip concatenations. It returns raw logits at the input spatial size; do not apply softmax before CrossEntropyLoss. The default width was reduced from the author's draft width of 64 to 16, with no architectural enhancements. The recorded GPU run used width 16, now verified in the selected checkpoint; `base_features=64` restores the original draft width. Training history and measured segmentation scores are archived in `support/saved_results/`. Record the width in saved checkpoint configuration so evaluation reconstructs the same model.
 
 ### Completed resource measurement
 
@@ -104,7 +127,7 @@ forward-only or **21.75 ms** including transfers, argmax and output copy;
 these are medians across 27 per-case medians, each with three repeats.
 Peak allocated/reserved memory is **0.2710 / 0.3418 GiB**, including resident
 weights. Disk loading, preprocessing, model loading and training are excluded.
-See the [raw records and matched 3D measurements](support/artifacts/resource_717015/README.md)
+See the [raw records and matched 3D measurements](../UNet3D_s4984160/support/saved_results/resource_results/README.md)
 for protocol, limitations and the successful direct 3D prediction example.
 
 ```python
@@ -132,7 +155,7 @@ Files are paired by patient, week and numeric slice index. Missing, orphan or du
 
 ## Patient separation
 
-`patient_split.json` preserves the existing 3D experiment's split: sort the original letter-prefixed 3D patient IDs, shuffle using Python `random.Random(42)`, then select 26/6/6 patients. The verified unique numeric suffix maps those IDs to 2D filenames. Do not sort numeric IDs and take the first 26, or use the provided directory split as our experimental split.
+`support/patient_split.json` preserves the existing 3D experiment's split: sort the original letter-prefixed 3D patient IDs, shuffle using Python `random.Random(42)`, then select 26/6/6 patients. The verified unique numeric suffix maps those IDs to 2D filenames. Do not sort numeric IDs and take the first 26, or use the provided directory split as our experimental split.
 
 The loader indexes all supplied source folders, then applies this manifest without moving data. With the complete dataset, expected slice-pair counts are 8,700 training, 2,340 validation and 1,620 test. Passing a different manifest is explicit; overlapping, missing or unassigned patients are rejected.
 
@@ -168,7 +191,7 @@ The original 3D headers use L/P/S axes; the matched planes are coronal. The slic
 
 ## Checks and provenance
 
-Run `python -m unittest discover -s recognition/UNet2D_s4984160/tests -v` from the repository root with NumPy, NiBabel and PyTorch installed. Tests create synthetic NIfTI fixtures; they do not use patient images. Synthetic tests check loading behavior, not full real-data correctness or model performance.
+Run `python -m unittest discover -s recognition/UNet2D_s4984160/support/check_code -v` from the repository root with NumPy, NiBabel and PyTorch installed. Tests create synthetic NIfTI fixtures; they do not use patient images. Synthetic tests check loading behavior, not full real-data correctness or model performance.
 
 The loader, model and training loop were adapted from the author's submitted drafts, with AI assistance reviewing directory pairing, explicit split handling, normalization/padding, input validation, model width, scan-level metric aggregation, checkpointing and checks. General CE/Adam/early-stopping ideas were also discussed in the author's linked reference conversation; the linked friend's implementation was not used. The author's original attachments were preserved. No friend's implementation, model weights, experimental scores or report text are included. Final project documentation will need the full AI-use disclosure, exact environment versions and measured experimental results.
 
@@ -178,5 +201,5 @@ Evaluation 716656 saved all five paired figures and both completion markers.
 The shared GT matched for all 27 scans. 2D improves scan-average Dice in 21/27
 cases, but has more rectal invasion (400 versus 21 shared voxels) and does not
 win every patient. Keep the selected checkpoint frozen. See the
-[result and case analysis](support/artifacts/final_test_2d/README.md) and the
+[result and case analysis](support/saved_results/test_results/README.md) and the
 [main comparative report](../UNet3D_s4984160/README.md).

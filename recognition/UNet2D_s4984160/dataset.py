@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader, Dataset
 
 IGNORE_INDEX = 255
 TARGET_SHAPE = (256, 144)
-DEFAULT_SPLIT = Path(__file__).with_name('patient_split.json')
+DEFAULT_SPLIT = Path(__file__).resolve().parent / 'support' / 'patient_split.json'
 IMAGE_PATTERN = re.compile(r'case_(\d{3})_week_(\d+)_slice_(\d+)\.nii\.gz')
 MASK_PATTERN = re.compile(r'seg_(\d{3})_week_(\d+)_slice_(\d+)\.nii\.gz')
 

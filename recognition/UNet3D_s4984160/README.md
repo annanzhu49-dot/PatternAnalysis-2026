@@ -2,74 +2,140 @@
 
 COMP3710 · Normal difficulty · Student ID: s4984160 · Updated 30 October 2026
 
-## Abstract
+## 1. Project overview and working principles
 
-This project implements a standard 3D U-Net for six-class pelvic MRI segmentation,
-with prostate segmentation as the principal endpoint. A patient-disjoint split
-of 211 scans from 38 patients provided 145 training, 39 validation and 27 test
-scans. The validation-selected 3D checkpoint achieved test mean scan prostate
-Dice **0.7732** (SD 0.0557), mean IoU **0.6336** and mean HD95 **6.50 mm** on
-the resized full-volume grid. An independently trained standard 2D U-Net used
-the same patient groups. After verifying exact ground-truth equality on a
-shared grid, 2D achieved Dice **0.8232**, compared with **0.7732** for 3D, but
-produced more prostate voxels inside the reference rectum (**400 versus 21**).
-Matched-GPU measurements and five fixed paired cases show that mean overlap,
-organ confusion and computational cost must be considered together. This is
-a comparison of two implemented pipelines, not a controlled dimensionality
-ablation or evidence of clinical readiness.
+### 1.1 Project purpose and segmentation task
 
-## 1. Problem, scope and rationale
+The main objective is to build a reproducible 3D U-Net baseline for prostate
+segmentation across the full MRI volume. An independently trained 2D U-Net
+serves as a comparator, using the same patient groups for training, validation
+and testing. The 2D data cover only part of each volume, so the two models are
+compared within a verified common evaluation region.
 
-The task is voxel-wise classification of Background, Body, Bones, Bladder,
-Rectum and Prostate (numeric labels 0–5). The prostate is small relative to
-the volume, making foreground imbalance and missed or excessive boundaries
-important. Dice measures overlap, but can obscure localized extent errors
-and confusion with neighbouring organs. The report therefore combines
-per-class Dice/IoU with prostate HD95, volume ratio, precision/recall and
-erroneous overlap with bladder and rectum.
+This project uses the course HipMRI dataset for six-class MRI segmentation.
+`dataset.py` loads and preprocesses the MRI data, while `modules.py` defines
+the network architecture. The model classifies each voxel as Background, Body,
+Bones, Bladder, Rectum or Prostate, corresponding to labels 0–5. `predict.py`
+loads the trained model, generates predictions and visualizes the segmentation
+results.
 
-The encoder–decoder and skip connections follow the U-Net design [1]; the
-volumetric form follows the 3D U-Net family [2]. The implemented 3D model is
-a compact standard U-Net with instance normalization, rather than an exact
-reproduction of every configuration in the original paper. No residual blocks,
-attention, deep supervision or improved U-Net are claimed. The 2D model is an
-independently trained comparator, not a pretrained component of the 3D model.
-The adopted task-level mean prostate Dice targets are 0.70 for 3D and 0.75 for
-the native 2D task; these thresholds are not clinical acceptance criteria.
+### 1.2 Working principles and model implementation
+
+The 3D U-Net consists of an encoder, a bottleneck and a decoder [1,2]. The
+encoder uses repeated convolutions and pooling to extract image features while
+gradually reducing spatial resolution. The bottleneck processes these features
+at the smallest spatial scale. The decoder then upsamples the features to
+restore the input resolution. Skip connections bring features from corresponding
+encoder layers into the decoder, helping it combine spatial detail with broader
+context.
+
+`modules.py` defines the 3D U-Net structure, while
+`support/baseline_model.py` replaces `BatchNorm3d` with `InstanceNorm3d` to
+ensure that training and prediction use the same network structure. The model
+defined in `modules.py` has three pooling levels, with channel counts of 8,
+16, 32 and 64. Its final convolution produces six class scores for each voxel.
+
+During training, `train.py` compares the model output with the reference labels,
+calculates the loss and updates the model weights through backpropagation.
+During prediction, `predict.py` loads the saved weights, runs the MRI through
+the model and selects the highest-scoring class as the predicted label for each
+voxel. Reference labels are used only to evaluate and display the results, not
+as input to the model.
+
+```text
+MRI input
+   ↓
+Encoder
+Convolutions extract features;
+pooling gradually reduces spatial size
+   ↓
+Bottleneck
+Processes features at the smallest spatial size
+   ↓
+Decoder ← Encoder features passed through skip connections
+Upsampling gradually restores spatial size
+and combines features from the encoder
+   ↓
+Output layer
+Produces six class scores for each voxel
+   ↓
+Select the highest-scoring class
+   ↓
+Segmentation map
+Each voxel receives a class label (0–5)
+```
+
+The encoder, bottleneck, decoder and output layer are defined in `modules.py`.
+`predict.py` selects the highest-scoring class for each voxel and visualizes
+the segmentation results.
 
 ## 2. Feasibility review and final scope
 
-This compact review records the scope supported by the completed experiment;
-it is a retrospective update, not a claim of a separately approved feasibility
-check. The initial improved-3D ambition was narrowed to Normal standard 3D
-U-Net so that training, independent testing, prediction and an interpretable
-comparison could be completed within the available cluster access and deadline.
+### 2.1 Original plan and acceptance criteria
 
-**Data feasibility.** Paired course MRI and semantic labels were available.
-Patient IDs support a disjoint split, preventing different weeks from the
-same patient appearing in training and test. The supplied 2D data cover only
-a coronal band, so comparing native 2D scores against full-volume 3D scores
-would be inappropriate. A verified shared-grid evaluation resolves the spatial
-comparison while retaining each model's native task results separately.
+The prototype was intended to assist imaging specialists reviewing anatomical
+contours. The original feasibility review proposed a Hard-difficulty improved
+3D U-Net with residual units and deep supervision, using a standard 3D U-Net
+as the baseline. The aim was to investigate whether these additions could reduce
+prostate boundary errors near its superior and inferior extents and at the
+bladder/rectum interfaces, and whether any improvement justified the additional
+computational cost.
 
-**Compute feasibility.** Full-resolution 3D training is costly. Resizing to
-64×128×128, using base width 8, batch size one, RAM caching and BF16 allowed
-the standard model to run on a course A100. Small-foreground learning remained
-difficult: the first 15 epochs had zero validation prostate Dice. Continuing
-from the last checkpoint with training-derived class weights recovered a useful
-baseline. Queue time was an operational constraint, distinct from model runtime.
+| Criterion | Planned assessment |
+| --- | --- |
+| AC1 — Overall accuracy | Test prostate Dice ≥0.70; report per-class Dice/IoU |
+| AC2 — Boundary quality | Compare prostate HD95 on the same test cases |
+| AC3 — Local errors | Inspect extent omissions and bladder/rectum confusion using 3–5 cases |
+| AC4 — Improvement value | Examine consistent gains and regressions, alongside parameter count, memory and latency |
 
-**Risk and decision criteria.** The principal risks were class imbalance,
-patient leakage, spatial misalignment and stopping at an apparently good mean
-without inspecting failures. Mitigations were a fixed patient split, validation
-checkpoint selection, strict loading/configuration checks, exact shared-GT
-verification and retained failure cases. The completed test means meet the
-adopted numerical targets, but small patient count, low-resolution geometry and
-remaining organ confusion limit generalization. The achievable deliverable is
-a reproducible research baseline and qualified comparison; improved architectures
-and clinical validation remain outside the implemented scope.
+### 2.2 Preliminary feasibility evidence, risks and resources
+
+**Preliminary feasibility evidence**
+
+The data audit confirmed basic integrity. CPU forward/backward tests on
+synthetic inputs confirmed baseline functionality.
+
+| Check | Verified result |
+| --- | --- |
+| MRI–mask pairs / patients | 211 complete pairs / 38 patients |
+| Volume dimensions | 210 volumes of (256, 256, 128); one of (256, 256, 144) |
+| Shape and affine alignment | All 211 pairs passed |
+| Mask labels / finite MRI values | Labels restricted to 0–5; all checked MRIs passed |
+| Training / validation / test | 145 / 39 / 27 scans; no patient overlap |
+| Preprocessed image | [1, 64, 128, 128]; one real MRI sample passed |
+| Baseline CPU smoke test | Synthetic input: forward and backward passes succeeded |
+| Real-MRI GPU smoke test | Submitted at the time of the original review; measurements were still pending |
+
+**Risks, budget and fallback**
+
+| Risk → affected criteria | Mitigation | Assessment |
+| --- | --- | --- |
+| Class imbalance → AC1, AC3 | Investigate combined Dice and cross-entropy loss | Compare per-class Dice, especially small classes, and FP/FN in key regions |
+| Downsampling → AC2, AC3 | Use local 3D patches / higher resolution if necessary | Compare prostate HD95 and FP/FN at the base, apex and organ interfaces |
+| Model complexity → AC4 and resource budget | Limit feature channels; compare parameters, memory and latency | Weigh reproducible Dice/HD95/boundary improvements against peak memory and inference time |
+
+Resource budget: one Rangpur A100 GPU; batch size = 1; input [64,128,128];
+base width 8. The planned next step was real-MRI GPU forward/backward testing,
+followed by baseline training. The fallback was to reduce channel counts or use
+patch training, retaining the standard 3D U-Net baseline if the improved model
+proved infeasible.
+
+### 2.3 Final scope adjustment
+
+The final project adopted the fallback and focused on a Normal-difficulty
+3D U-Net. Given the remaining time and cluster queue constraints, priority was
+given to completing baseline training, independent testing and error analysis.
+
+A 2D U-Net was also trained independently for comparison. Both models used
+the same patient groups and were compared within a verified common region,
+considering segmentation accuracy, boundary errors, bladder/rectum confusion
+and resource cost.
 
 ## 3. Data and preprocessing — `dataset.py`
+
+This project uses the HipMRI dataset supplied through COMP3710 at The
+University of Queensland, including 3D MRI volumes, semantic labels and prepared
+2D slices [3].
 
 | Split | Patients | Scans | Supplied 2D slices |
 | --- | ---: | ---: | ---: |
@@ -77,11 +143,11 @@ and clinical validation remain outside the implemented scope.
 | Validation | 6 | 39 | 2,340 |
 | Test | 6 | 27 | 1,620 |
 
-Original prefixed patient IDs were sorted, shuffled with `random.Random(42)`,
-then partitioned 26/6/6. All weeks from one patient stay in one group. The test
-patients are B037, H007, H017, K042, L011 and M013. The 2D manifest maps the
-numeric IDs back to the identical groups. The archived manifests, rather than
-an independently randomized slice split, define the evaluation cohort.
+Patients were divided into training, validation and test groups of 26, 6 and
+6 using a fixed random seed of 42. All scans from the same patient stay in
+one group to avoid data leakage. The test patients are B037, H007, H017, K042,
+L011 and M013. The 2D model uses the same patient groups as the 3D model, and
+slices are not randomly split into separate groups.
 
 For 3D, `semantic_MRs/` and `semantic_labels_only/` are paired by filename.
 Shapes and affines are checked. Of 211 volumes, 210 have shape (256,256,128)
@@ -91,186 +157,264 @@ by Z-score, with zero background retained. Axes change from (X,Y,Z) to
 nearest-resized to (64,128,128). Images have one input channel; labels remain
 integers 0–5. Test preprocessing is identical to validation preprocessing.
 
-For 2D, each scan supplies 60 coronal slices, corresponding to original axis-1
-indices 98–157, with an axis-0 reversal. Each slice is Z-score normalized over
-its valid original pixels. Width 128 is right-padded to 144 (MRI value zero,
-label 255); native width 144 needs no padding. The loss ignores label 255 and
-evaluation removes padding. This slice-level normalization differs from 3D.
+For 2D, each MRI scan provides 60 coronal slices from part of the original
+volume. These correspond to positions 98–157 along the original volume’s
+second axis and are flipped along its first axis. This position and orientation
+information is used later to align the 2D and 3D results.
 
-### Shared evaluation geometry
+`dataset.py` normalizes each slice separately using its own mean and standard
+deviation (Z-score), calculated before any padding. Slices are either 256×128
+or 256×144 pixels. For narrower slices, 16 columns are added on the right to
+make all inputs 256×144, without stretching the image. The added MRI pixels
+are filled with zero, and their labels are set to 255 to mark them as ignored.
+Training ignores these added pixels, and evaluation removes them. Unlike 2D,
+which normalizes each slice separately, 3D normalizes each complete MRI volume.
 
-The observed mapping is `slice[i] = original_volume[::-1,98+i,:]`. Predictions
-are unpadded and flipped back before nearest-grid alignment. The common grid
-has D=64, H=128 and 30 planes, corresponding to full-grid W=49–78 and original
-Y=98,100,…,156. It is not all 60 native planes. All 27 mapped GT arrays were
-checked for exact voxel equality; re-inferred 3D overlap counts reproduced
-the original archive. Shared HD95 and organ confusion were independently
-recomputed. The 3D model still takes its full-volume input, so this is matched
-output-region evaluation, not matched input context.
+### Aligning the 2D and 3D results
 
-## 4. Architectures — `modules.py`
+To compare the models, the 2D predictions are first cropped to remove padding
+and flipped back to match the original MRI orientation. They are then mapped
+to the corresponding region of the resized 3D volume using nearest-neighbour
+interpolation, producing a shared evaluation grid of 64×128×30.
 
-| Property | Standard 3D U-Net | Standard 2D U-Net |
-| --- | --- | --- |
-| Input | One full resized volume or training block | One normalized padded coronal slice |
-| Encoder/bottleneck channels | 8, 16, 32, 64 | 16, 32, 64, 128, 256 |
-| Pooling levels | 3 | 4 |
-| Normalization | Affine InstanceNorm3d | BatchNorm2d |
-| Parameters | 351,206 | 1,942,374 |
-| Output | Six-class logits | Six-class logits |
+The aligned reference labels matched exactly for all 27 test scans. Both models
+were scored within this same region, including overlap, HD95 and bladder/rectum
+confusion. The 3D model still receives the full volume, while the 2D model
+processes individual slices; only the evaluation region is matched.
 
-Both use double convolution blocks, ReLU, max pooling, transposed-convolution
-upsampling and concatenated skip connections. Each 3D block uses 3×3×3
-convolutions. For a full input, spatial sizes progress from 64×128×128 to
-8×16×16 at the bottleneck, then return to the input size. Although the component
-definition defaults to BatchNorm3d, `support/baseline_model.py` builds the actual
-trained model with `InstanceNorm3d(affine=True, track_running_stats=False)`.
-Evaluation reconstructs this configuration from the checkpoint. Prediction
-uses argmax without postprocessing. The different widths, depths, normalization
-and parameter counts are explicit comparison confounders.
+## 4. Training and model selection — `train.py`
 
-## 5. Training and model selection — `train.py`
+### 4.1 Training the 3D U-Net
 
-### 5.1 Standard 3D baseline
+The 3D U-Net was trained in two phases: Phase 1 (15 epochs) and Phase 2
+(11 epochs). Phase 1 was carried out by
+`support/train_phase1/scratch.py`. After 15 epochs—15 passes through the training
+data—validation prostate Dice was still zero, although the model had started
+learning other classes. Phase 1 stopped because validation performance had
+not improved for several epochs.
 
-The initial stage is `support/train_phase1/scratch.py`; root `train.py` is the final
-refinement stage. The first stage stopped after 15 epochs under its validation
-plateau rule. Prostate validation Dice was zero, although other classes had
-learned. Refinement loaded epoch-15 **last_model.pt**, reset the optimizer,
-and trained a further 11 epochs. It did not restore the complete optimizer/RNG
-state of a paused run, and it did not initialize from the test set.
+To address class imbalance and help the model learn smaller organs, Phase 2
+was carried out by `train.py` using the weights saved at the end of Phase 1.
+In our dataset, this imbalance is reflected in the much smaller proportion
+of prostate voxels compared with background and body voxels. The
+learned weights were retained, but the optimizer, which controls how the weights
+are updated, was restarted. The loss function was also adjusted so that errors
+in smaller classes had more influence on training. These class weights were
+calculated using training data only.
 
-| Setting | Recorded configuration |
+During both phases, each training input was randomly chosen as either a full
+MRI volume or a cropped block. Cropped blocks helped the model see small organs
+more often, while full volumes helped it learn the background and the tissues
+around these organs. Full volumes were selected with a probability of 50%,
+rectum-centred blocks with 25%, and prostate-centred blocks with 25%. These
+percentages were probabilities, rather than fixed numbers of inputs in each
+epoch.
+
+The main training settings were:
+
+| Setting | Value and purpose |
 | --- | --- |
-| Optimizer | AdamW, learning rate 0.0005, weight decay 1e-5 |
-| Batch / precision | 1 / CUDA BF16 autocast |
-| Sampling probabilities | 50% full volume, 25% rectum-centred block, 25% prostate-centred block |
-| Block size | 32×64×64; random centre offset; full-volume fallback if target absent |
-| Data execution | Preprocessed RAM cache, one thread, zero extra workers |
-| Objective | 0.5 weighted cross-entropy + 0.5 weighted foreground soft-Dice loss |
-| Foreground Dice weights, classes 1–5 | [1,1,1,2,2] |
-| Checkpoint selection | Highest validation mean scan prostate Dice; foreground mean breaks ties |
+| Optimizer | AdamW, with an initial learning rate of 0.0005 controlling the update step size and weight decay of 1e-5 discouraging excessively large weights |
+| Batch size | One full volume or one cropped block per update |
+| Cropped blocks | 32×64×64, with a random offset around the organ centre; a full volume was used if the target organ was absent |
+| Loss function | Equal contributions from weighted cross-entropy, which evaluates voxel classification, and weighted foreground soft-Dice loss, which evaluates overlap using predicted probabilities |
+| Foreground Dice weights | [1,1,1,2,2] for classes 1–5, giving greater weight to the rectum and prostate; background was excluded from this Dice term |
+| Computation | BF16 mixed precision, using lower precision for supported GPU operations; preprocessed data cached in RAM; one computation thread and no additional data-loading workers |
 
-Sampling probabilities describe random choices, not exact per-epoch quotas.
-Initial CE weights were [1,1,1,2,3,3]. Refinement used training-only counts:
-`sqrt(body_count/class_count)` clamped to [0.25,25], yielding approximately
-[0.7792,1.0000,3.3000,8.1902,16.0901,18.8062]. Class weights address imbalance,
-while full-volume examples maintain exposure to background and organ context.
-This rationale is not evidence from a controlled sampling ablation.
+Phase 2 changed the cross-entropy class weights. In Phase 1, classes
+0–5 used weights of [1,1,1,2,3,3]. In Phase 2, the weights were
+calculated from the number of training voxels in each class:
 
-Refinement validation prostate Dice was zero for its first five epochs, then
-0.4395, 0.6710, 0.3671, 0.7415, 0.7029 and 0.7560. The last three met the
-consecutive ≥0.70 stopping rule with nonzero rectum Dice. Epoch 11 (cumulative
-epoch 26) was selected with validation Dice **0.755972**. The configured later
-scheduler/plateau rules did not activate. Improvements cannot be attributed
-solely to class weights: further optimization, optimizer reset and the loss
-change occurred together.
+```text
+Class weight = sqrt(body voxel count / class voxel count)
+```
 
-### 5.2 Independently trained 2D comparator
+Each weight was limited to the range 0.25–25. The resulting weights were
+approximately [0.7792,1.0000,3.3000,8.1902,16.0901,18.8062]. This increased
+the contribution of smaller classes to the training loss.
 
-The 2D model used Adam (learning rate 0.001), batch size 16 and an equal mixture
-of valid-pixel CE and mean foreground soft-Dice loss. Ignored padding is masked
-in both terms. The scheduler halves learning rate after four stale validation
-epochs; early stopping uses patience eight and minimum ten epochs, within a
-maximum of 30. Seed 42, one thread and zero workers were recorded. Job 716367
-ran 13 epochs; epoch 5 had the best validation prostate Dice **0.834130**.
-That checkpoint was frozen before independent testing. Training batch soft Dice
-and hard-label whole-scan evaluation are different quantities.
+Phase 2 ran for 11 epochs. Validation prostate Dice remained zero
+for the first five epochs, then improved with some fluctuation:
 
-### 5.3 3D training evidence
+| Phase 2 epoch | Validation prostate Dice |
+| --- | ---: |
+| 1–5 | 0.0000 |
+| 6 | 0.4395 |
+| 7 | 0.6710 |
+| 8 | 0.3671 |
+| 9 | 0.7415 |
+| 10 | 0.7029 |
+| 11 | 0.7560 |
+
+The model from Phase 2 epoch 11, or epoch 26 overall, was selected
+because it achieved the highest mean validation prostate Dice of **0.755972**.
+Mean foreground Dice was used to break ties between checkpoints with the same
+prostate Dice. Training also ended at this epoch, as prostate validation Dice
+had reached at least 0.70 for three consecutive epochs and rectum Dice was
+nonzero. Thus, the validation scores determined which checkpoint to retain,
+while the stopping rule determined when to end training.
+
+**Training evidence: 3D training loss and validation Dice**
 
 ![Existing 3D training loss and validation Dice](support/saved_results/training_results/training_curves.png)
 
-The plot uses the original 15 initial and 11 refinement epochs. Training
-objectives have phase-specific weights, so they are plotted as separate lines.
-Validation loss was not logged; the recorded validation metric is prostate
-Dice. The selected point is cumulative epoch 26. Source values and hashes
-are preserved in [the 3D training record](support/saved_results/training_results/README.md).
+The figure shows changes in training loss and validation prostate Dice during
+the 15 epochs of Phase 1 and the 11 epochs of Phase 2. The left
+panel records training loss, while the right panel shows prostate Dice on the
+validation set. The dotted vertical line separates Phase 1 and Phase 2, and
+the dashed horizontal line marks the Dice target of 0.70.
 
-### 5.4 2D baseline training evidence
+During Phase 1, the loss decreased, but validation prostate Dice remained zero.
+This shows that a lower overall training loss did not necessarily mean better
+prostate segmentation. During Phase 2, prostate Dice began to improve, although
+it fluctuated before reaching at least 0.70 for the final three epochs. The
+selected model at epoch 26 achieved validation Dice of **0.7560**.
+
+Together, the curves show why model selection relied on validation prostate
+Dice rather than training loss alone.
+
+### 4.2 Training the 2D U-Net
+
+The 2D U-Net was trained independently using Adam, with a learning rate of
+0.001, batch size 16 and a maximum of 30 epochs. Random seed 42, one CPU computation
+thread and no additional data-loading workers were used.
+
+To guide these weight updates, the loss equally combined cross-entropy and
+mean foreground soft-Dice loss. Cross-entropy evaluates pixel classification,
+while soft Dice measures region overlap using predicted probabilities. This allowed training to consider both classification
+and overlap. Both terms ignored the padded pixels described in Section 3.
+
+To monitor whether training improved segmentation, prostate Dice was measured
+on the validation set after each epoch. The learning-rate
+scheduler used a patience of four epochs, halving the learning rate when
+improvement stalled to allow smaller weight updates. Early stopping used a
+patience of eight epochs and required at least ten training epochs, allowing
+time for learning while avoiding continued training without validation
+improvement.
+
+Epoch 5 was selected for its highest validation prostate Dice of **0.834130**.
+Training stopped at epoch 13 after eight epochs without improvement, and the
+selected weights were frozen for independent testing.
+
+Training soft Dice uses probabilities within each batch; evaluation Dice uses
+final predicted labels grouped by scan. They are different measurements, not
+interchangeable scores.
+
+**Training evidence: 2D training and validation curves**
 
 ![2D loss and validation Dice](../UNet2D_s4984160/support/saved_results/training_results/training_plot.png)
 
-The baseline stopped after 13 epochs without improving on epoch 5 (validation
-prostate Dice 0.8341). Its held-out native score was subsequently 0.8254.
-Training loss continued falling while validation performance plateaued, so
-extra training was not assumed to help. The test set was not used to select
-the epoch. Original training records are preserved in the
-[2D training record](../UNet2D_s4984160/support/saved_results/training_results/README.md).
+The figure shows training loss, validation loss and validation prostate Dice
+over 13 epochs. The left panel compares training and validation loss, while the
+right panel tracks validation prostate Dice.
 
+Training loss continued to decrease, but validation loss did not decrease
+consistently, and validation prostate Dice did not improve beyond epoch 5.
+This shows that a better fit to the training data did not lead to better
+validation segmentation. The curves therefore support selecting the epoch-5
+model and stopping after further training failed to improve validation
+performance.
 
-## 6. Independent evaluation — `evaluate.py`
+The selected model later achieved Dice **0.8254** on the held-out native 2D
+task. This result was measured after model selection; the test set was not
+used to choose the training epoch.
 
-Frozen test evaluation used 27 scans from six unseen patients. Job 715670
-evaluated 3D, job 716656 evaluated 2D and re-inferred the paired 3D reference,
-and job 717015 measured resources and demonstrated direct 3D inference.
-The evaluator strictly checks model configuration, checkpoint SHA256, patient
-manifests and geometry. No weights, thresholds or postprocessing were selected
-using test results. Aggregate success does not make each prediction correct.
+## 5. Independent evaluation and model comparison
 
-For each class and scan, Dice = `2TP/(2TP+FP+FN)` and IoU =
-`TP/(TP+FP+FN)`. The primary result is mean scan Dice; SD describes variation
-between scans, not a confidence interval. Patient Dice first averages scans
-within each patient, then averages patients equally. Pooled precision, recall
-and volume ratio use summed voxel counts; these are not means of per-case
-ratios. Both-empty class masks are undefined and excluded with valid counts,
-rather than assigned perfect scores; one-sided empty overlap is zero.
+### 5.1 Evaluation procedure and metrics
 
-Prostate HD95 is the 95th percentile of concatenated bidirectional six-connected
-surface distances, averaged across valid cases. An empty mask makes HD95
-undefined, with an explicit status. All 27 full-volume 3D cases had valid values.
-Distances use original affine spacing adjusted for resize and are approximate
-resized-grid millimetres, not clinical original-resolution contour accuracy.
-Native 2D distances use the corresponding 3D affine, not identity 2D affines.
+To make the comparison fair, both models were evaluated on the same 27 scans
+from six patients who were not used for training or validation. For this
+evaluation, each model’s `evaluate.py` loaded its selected weights and checked
+the model settings, patient groups and image alignment. The weights remained
+unchanged throughout testing, and test results were not used for further
+training or model selection.
 
-Organ invasion counts prostate predictions whose GT class is bladder or rectum.
-They cover these specific confusion regions, not all false positives. Counts
-are comparable between models only on the same grid. The predicted/GT volume
-ratio exceeds one for excess total volume, but cannot localize errors.
+The supplied 2D slices cover only part of each MRI volume, so their results
+cannot be directly compared with full-volume 3D results. Section 5.2 therefore
+reports each model’s own task performance, while Section 5.3 compares them
+within the shared region verified in Section 3. To assess both overall overlap
+and local errors, this comparison includes boundary distance, predicted volume
+and bladder/rectum confusion alongside Dice and IoU.
 
-The 3D full-volume prostate totals were TP=19,690, FP=7,859 and FN=3,706;
-pooled Dice was 0.772990. Only 110 of its 7,859 false-positive voxels lay in GT
-bladder/rectum (1.40%), so most excess prediction cannot be described as
-invasion of those two organs. Three of 27 3D cases scored below 0.70, with
-scan Dice ranging from 0.6413 to 0.8850. The following tables preserve native,
-shared and complete-volume scopes separately.
+| Metric | Meaning |
+| --- | --- |
+| Dice / IoU | Dice compares twice the overlapping volume with the sum of predicted and reference volumes. IoU compares the overlapping volume with the volume covered by either region. Both measure region overlap; higher is better. |
+| HD95 | HD95 combines distances from each predicted boundary point to the nearest reference boundary point and vice versa, then takes the 95th percentile. A smaller value means 95% of these distances fall within a smaller range, indicating closer boundaries. |
+| Precision | Correctly predicted prostate voxels divided by all voxels predicted as prostate. Higher is better. |
+| Recall | Correctly predicted prostate voxels divided by all reference prostate voxels. Higher is better. |
+| Pred/GT volume ratio | Predicted prostate volume divided by reference prostate volume. Above 1 indicates excess volume; below 1 indicates insufficient volume. |
+| FP in bladder / rectum | Counts voxels whose reference label is bladder or rectum but whose predicted label is prostate. This measures confusion with these two organs, not all false positives. Lower is better. |
 
-<!-- BEGIN GENERATED COMPARISON -->
-## Model comparison: complete volume and shared band
+Dice and IoU were calculated for each scan and then averaged. Dice is presented
+as **mean ± SD**, showing both average overlap and differences between scans.
+SD describes the spread of individual scores around the mean: a smaller SD
+indicates more consistent results. It is not a confidence interval.
 
-Frozen held-out evaluation job **716656** completed. All 27 shared GT grids
-matched voxel-for-voxel, and re-inferred 3D overlap counts reproduced the archive.
-The 2D native task and paired shared-grid task remain separate below.
-Only the two implemented standard models are compared.
+Patient-level Dice was calculated by averaging scans within each patient,
+then averaging patients equally. This prevents patients with more scans from
+contributing more weight to the result.
 
-### A. Complete-volume 3D reference
+Precision, recall and volume ratio were calculated from combined voxel counts
+across all scans, describing overall classification and volume balance. HD95
+was calculated for each valid case and then averaged, describing the average
+boundary error. Distances use image spacing adjusted to the evaluation grid,
+so millimetre measurements on the resized grid are approximate.
 
-| Scope | Patients/scans | Mean scan Dice ± SD | Mean IoU | HD95 (approx. mm) | Pooled volume ratio |
+### 5.2 Results on each model’s task
+
+The 3D model was evaluated on full resized MRI volumes, while the 2D model
+was evaluated on all 60 supplied slices per scan. The table below summarizes
+prostate segmentation results for each model’s task.
+
+| Model and scope | Patients / scans | Mean scan Dice ± SD | Mean patient Dice | Mean IoU | Mean HD95, mm |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Standard 3D; full 64×128×128 grid | 6 / 27 | 0.7732 ± 0.0557 | 0.6336 | 6.50 | 1.1775 |
+| 3D U-Net: full 64×128×128 volume | 6 / 27 | 0.7732 ± 0.0557 | 0.7678 | 0.6336 | 6.50* |
+| 2D U-Net: 60 native slices per scan, 1,620 slices in total | 6 / 27 | 0.8254 ± 0.0640 | 0.7909 | 0.7075 | 4.90 |
 
-### B. Paired shared-grid prostate results
+*3D distances use approximate resized-grid spacing.*
 
-| Model | Mean scan Dice ± SD | Mean patient Dice | Mean IoU | HD95 (approx. mm) | Pooled precision / recall | Pred/GT ratio | FP in bladder / rectum |
+Mean prostate Dice reached **0.7732** for 3D and **0.8254** for 2D, meeting
+their respective targets of 0.70 and 0.75. However, three 3D scans and four 2D
+scans fell below their corresponding targets. The models therefore met the
+average requirements, but some individual scans still required closer
+inspection.
+
+### 5.3 Comparison within the shared region
+
+To compare segmentation results directly, both predictions were evaluated
+within the same 64×128×30 region verified in Section 3. The aligned reference
+labels matched exactly for all 27 scans. All metrics below were calculated
+within this region, including HD95 and bladder/rectum confusion.
+
+| Model | Mean scan Dice ± SD | Mean patient Dice | Mean IoU | HD95, approx. mm | Precision / recall | Pred/GT ratio | FP in bladder / rectum |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Standard 3D U-Net | 0.7732 ± 0.0557 | 0.7678 | 0.6336 | 6.50 | 0.7147 / 0.8416 | 1.1775 | 89 / 21 |
-| Standard 2D U-Net | 0.8232 ± 0.0645 | 0.7877 | 0.7044 | 5.18 | 0.8421 / 0.8093 | 0.9611 | 110 / 400 |
+| 3D U-Net | 0.7732 ± 0.0557 | 0.7678 | 0.6336 | 6.50 | 0.7147 / 0.8416 | 1.1775 | 89 / 21 |
+| 2D U-Net | 0.8232 ± 0.0645 | 0.7877 | 0.7044 | 5.18 | 0.8421 / 0.8093 | 0.9611 | 110 / 400 |
 
-2D has higher Dice in **21/27 scans**; its mean scan gain is
-**5.00 percentage points**. The gain falls to
-**1.98 points** when weighting the six patients equally;
-4/6 patients favour 2D. Multiple weeks from one patient are correlated,
-so 27 scans are not 27 independent patients. These are descriptive results,
-without a statistical superiority claim.
+The 2D model achieved better average overlap and lower mean HD95. Its higher
+precision and volume ratio of 0.9611 indicate fewer extra prostate predictions
+overall, although the total predicted volume was slightly smaller than the
+reference. The 3D model had higher recall but a volume ratio of 1.1775, showing
+that it detected more reference prostate tissue while also predicting more
+tissue outside it.
 
-Shared scope: D=64, H=128, original full-grid W=49..78 (30 planes),
-corresponding to original Y=98,100,...,156. Shared HD95 and invasion counts
-were computed independently in this paired job, not copied from full-volume
-3D metrics. One 2D prediction (H007 Week0) touches the cropped W boundary;
-no GT or 3D prostate does. Distances refer to approximate resized spacing
-and can be affected by ROI surface truncation.
+The location of these errors gives a different perspective. Despite its better
+average overlap, 2D produced more prostate predictions inside the bladder and
+rectum, particularly the rectum: 400 voxels compared with 21 for 3D. This shows
+why Dice alone is insufficient: a model can achieve better overall overlap
+while making more errors in a specific neighbouring organ.
 
-### C. Six-class scope check
+To check whether the average advantage was consistent, Dice was also compared
+across individual scans and patients. The 2D model scored higher in 21 of 27
+scans, with a mean advantage of 5.00 percentage points. When patients were
+weighted equally, this fell to 1.98 points, with four of six patients favouring
+2D. The smaller advantage after equal patient weighting shows that the
+improvement was not equally large for every patient.
+
+Beyond the prostate, the following table compares Dice and IoU for all six
+classes. Full-volume 3D results are retained as a reference; direct model
+comparison uses the two shared-region columns.
 
 | Class | 3D full Dice / IoU | 3D shared Dice / IoU | 2D shared Dice / IoU |
 | --- | ---: | ---: | ---: |
@@ -281,212 +425,158 @@ and can be affected by ROI surface truncation.
 | Rectum | 0.8197 / 0.6972 | 0.8159 / 0.6928 | 0.8708 / 0.7734 |
 | Prostate | 0.7732 / 0.6336 | 0.7732 / 0.6336 | 0.8232 / 0.7044 |
 
-### D. Fixed-case shared-grid comparison
+The shared-region results show higher mean Dice and IoU for 2D across all six
+classes. However, the prostate had the lowest scores in both models, making
+it the most difficult class under these overlap measures. High scores for
+larger structures therefore did not imply equally good prostate segmentation.
+The differences between full-volume and shared-region 3D scores also reinforce
+the need to compare models within the same region.
 
-| Case | 3D Dice | 2D Dice | 2D minus 3D |
-| --- | ---: | ---: | ---: |
-| B037_Week0 | 0.6413 | 0.7195 | +0.0782 |
-| L011_Week2 | 0.7088 | 0.8458 | +0.1370 |
-| H017_Week3 | 0.7215 | 0.8158 | +0.0942 |
-| K042_Week0 | 0.8525 | 0.8378 | -0.0147 |
-| H007_Week0 | 0.7888 | 0.6686 | -0.1202 |
+Overall, 2D achieved better average overlap, while 3D missed a smaller
+proportion of prostate voxels and produced less confusion with neighbouring
+organs.
 
-The paired overlays are in the [completed 2D result record](../UNet2D_s4984160/support/saved_results/test_results/README.md).
-They reuse the same five cases and positions, without selecting new favourable examples.
+## 6. Computational resource comparison
 
-### E. Resource profile and confounders
+Resource measurements were performed using `support/profile_inference.py` in
+the 2D project directory, recording parameter counts, inference time and peak
+GPU memory. Both models were measured separately on the same NVIDIA
+A100-PCIE-40GB, with only one model on the GPU at a time.
+
+A 2D case included all 60 native slices, processed in batches of 16; a 3D case
+was one full 64×128×128 volume, with batch size one. Both models used FP32, or
+32-bit floating-point precision, for comparison. The 3D model was also measured
+with BF16, the lower-precision format used in its segmentation evaluation.
+TF32 was disabled to keep the FP32 computation settings consistent.
+
+Each mode began with three whole-case warmups, followed by three timed
+repetitions per case across 27 cases. Reported times are medians of the
+per-case medians, reducing occasional timing fluctuations. Peak memory is
+the maximum across measured cases and repetitions.
+
+**Forward time** covers network computation only. **Prediction time** also
+includes input transfer to the GPU, class selection and output transfer back
+to the CPU. Both exclude disk loading, preprocessing and initial model loading.
+
+**Allocated memory** is assigned to weights and tensors; **reserved memory**
+also includes PyTorch’s cached blocks. Peaks include the resident model and
+inference allocations, but exclude CUDA driver/context memory.
 
 | Model | Parameters | Precision | Forward ms/case | Prediction ms/case | Peak allocated / reserved GiB |
 | --- | ---: | --- | ---: | ---: | ---: |
-| Standard 2D | 1,942,374 | FP32 | 18.63 | 21.75 | 0.2710 / 0.3418 |
-| Standard 3D | 351,206 | FP32 | 17.05 | 18.24 | 0.1815 / 0.2402 |
-| Standard 3D | 351,206 | BF16 | 9.75 | 10.91 | 0.1246 / 0.1582 |
+| 2D U-Net | 1,942,374 | FP32 | 18.63 | 21.75 | 0.2710 / 0.3418 |
+| 3D U-Net | 351,206 | FP32 | 17.05 | 18.24 | 0.1815 / 0.2402 |
+| 3D U-Net | 351,206 | BF16 | 9.75 | 10.91 | 0.1246 / 0.1582 |
 
-Job **717015** measured all rows separately on the same **NVIDIA A100-PCIE-40GB**;
-each model started with zero other PyTorch GPU allocations. TF32 was disabled.
-Times are medians across 27 per-case medians, with three warmups and three repeats.
-2D means all 60 native slices (batch 16); 3D means the full 64×128×128 volume (batch 1).
-Forward excludes transfers; prediction includes transfers, forward, argmax and output copy.
-Both exclude disk loading, preprocessing and initial model loading. Peaks include resident
-weights and inference tensors/cache, but exclude CUDA driver/context and training memory.
-Allocated and reserved are distinct PyTorch memory measures.
+At matched FP32 precision, the compact 3D model had lower measured inference
+costs than the 2D model. Switching the same 3D model to BF16 further reduced
+runtime and peak allocated memory without changing its network structure or
+input size. This shows that the cost of full-volume 3D inference depends not
+only on dimensionality, but also on model size and computation precision.
 
-Use FP32 rows for the matched-precision comparison; BF16 records the 3D deployment mode.
-The earlier 3D-only timing (17.55 ms, 0.1364 GiB) remains in the original archive;
-this table uses the new isolated profiling protocol, without replacing segmentation scores.
-Coverage, resolution, normalization, model size and training differ, so these are pipeline
-costs, not an isolated causal test of convolution dimension.
+These results suggest that a compact network combined with BF16 can make
+volumetric inference more practical within a limited resource budget. Whether
+that cost is worthwhile should then be considered alongside the segmentation
+results: the 3D model had lower prostate overlap on average, but higher recall
+and less bladder/rectum confusion.
 
-Raw [resource records and prediction example](support/saved_results/resource_results/README.md).
 
-### F. Native 2D task (all 60 unpadded slices per scan)
 
-| Model | Patients/scans/slices | Mean scan Dice ± SD | Mean patient Dice | Mean IoU | Native-band HD95 (mm) |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Standard 2D | 6 / 27 / 1620 | 0.8254 ± 0.0640 | 0.7909 | 0.7075 | 4.90 |
+## 7. Qualitative error analysis: three held-out cases
 
-The native 2D mean exceeds the 0.75 target; 4/27 scans remain below 0.75.
-Native metrics use the original valid pixels and original 3D affine spacing
-for the supplied partial band. They are not full-volume 3D scores and must
-not be substituted into the shared-grid table.
-
-### Interpretation
-
-2D improves mean overlap, precision and mean HD95, with less total excess
-volume. However, shared-grid rectal invasion is **400 voxels versus 21**
-for 3D, and bladder invasion is 110 versus 89. 3D has higher pooled recall
-(0.8416 versus 0.8093). H007 Week0 is an important 2D failure, not hidden
-by the better average. Keep both models frozen; use the remaining errors
-for reporting and future validation experiments, not test-set tuning.
-
-Rules: [comparison protocol](support/how_to_run/comparison_protocol.md).
-Auditable outputs: [metrics.json](support/compare_results/metrics.json),
-[metrics.csv](support/compare_results/metrics.csv), and
-[patient_comparison.csv](support/compare_results/patient_comparison.csv).
-Verify archived records and refresh comparison JSON/CSV with `python -m support.prepare_comparison`. This does not edit the report.
-<!-- END GENERATED COMPARISON -->
-
-## Qualitative error analysis: five held-out cases
-
-Columns are MRI, GT, 3D prediction, 2D prediction, and 2D prostate TP/FP/FN.
-Green/red/blue are TP/FP/FN; cyan/orange/magenta are bladder/rectum/prostate.
-Gray shading is outside the evaluated band, not predicted background. Extent
-rows are GT-based proxies, not independently annotated clinical landmarks.
-Case identities and view positions were fixed from the earlier 3D review.
-
-### B037 Week0: improved average overlap, but superior omission remains
+### 7.1 B037 Week0: better overlap without recovering the upper extent
 
 ![B037 paired predictions](../UNet2D_s4984160/support/saved_results/test_results/figures/B037_Week0_LFOV.png)
 
-Shared Dice rises from 0.6413 to 0.7195 and HD95 falls from 14.65 to 12.49 mm.
-The 2D middle-plane core has green overlap with visible blue missed edges;
-the superior D=39 GT focus remains blue/missed. Volume ratios are 0.6481 for
-2D and 0.6010 for 3D: both undersegment. A better average has not repaired this
-specific extent failure.
+The main problem in B037 is missing prostate tissue at the upper extent. The
+2D prediction improves overlap in the middle plane, but the reference region
+at D=39 remains missed. Volume ratios of 0.6481 for 2D and 0.6010 for 3D also
+show that both predictions are substantially smaller than the reference.
 
-### L011 Week2: less excess prediction, residual superior error
+The visible upper-end omission and the low volume ratios support the same
+finding: neither model provides complete coverage. Although 2D achieves higher
+Dice, 0.7195 versus 0.6413, this improvement does not extend to every part of
+the prostate. The case therefore highlights the need to inspect the upper
+extent rather than judge coverage from a better-matching central slice.
+
+### 7.2 L011 Week2: reduced oversegmentation with a remaining omission
 
 ![L011 paired predictions](../UNet2D_s4984160/support/saved_results/test_results/figures/L011_Week2_LFOV.png)
 
-Shared Dice improves from 0.7088 to 0.8458. The middle-plane 2D contour is less
-expanded than 3D, consistent with the volume ratio falling from 1.6787 to
-1.1880. HD95 improves from 8.13 to 4.71 mm; bladder invasion falls from 32 to
-3 voxels. The small superior D=44 focus is still missed, so improvement is
-not uniform across boundaries.
+In L011, the 3D prediction extends beyond the reference prostate, incorrectly
+including surrounding tissue. This is oversegmentation. The 2D middle-plane
+contour is less expanded, consistent with its volume ratio moving closer to
+one, from 1.6787 to 1.1880. Prostate predictions inside the bladder also fall
+from 32 voxels to three, supporting reduced excess prediction near the bladder.
 
-### H017 Week3: better precision with remaining undercoverage
+However, the small upper region at D=44 remains missed. The Dice improvement
+from 0.7088 to 0.8458 therefore accompanies a reduction in extra predictions
+without resolving the upper-end omission. This case shows that oversegmentation
+and missed tissue can occur together: a total volume closer to the reference
+does not mean that all boundaries are correct.
 
-![H017 paired predictions](../UNet2D_s4984160/support/saved_results/test_results/figures/H017_Week3_LFOV.png)
-
-Shared Dice improves from 0.7215 to 0.8158 and HD95 from 6.72 to 3.36 mm.
-The 2D prediction is smaller overall (volume ratio 0.8130), but its precision
-is higher (0.9096 versus 0.7246). Core overlap improves while blue errors
-remain at small extents. Bladder invasion is zero for 2D versus ten for 3D;
-rectal invasion is eight versus zero. Volume agreement alone does not rank
-the models, and improved overlap does not remove every organ-confusion error.
-
-### K042 Week0: 3D retains a small Dice advantage
-
-![K042 paired predictions](../UNet2D_s4984160/support/saved_results/test_results/figures/K042_Week0_LFOV.png)
-
-Shared Dice is 0.8378 for 2D versus 0.8525 for 3D. 2D has lower recall
-(0.7607 versus 0.8106) and a smaller volume ratio (0.8158 versus 0.9017),
-consistent with undercoverage despite a mostly matching core. Its HD95 is
-slightly lower (5.68 versus 6.26 mm), illustrating that Dice and HD95 need
-not produce the same ranking.
-
-### H007 Week0: important 2D failure and rectal confusion
+### 7.3 H007 Week0: concentrated rectal confusion despite better group-average Dice
 
 ![H007 paired predictions](../UNet2D_s4984160/support/saved_results/test_results/figures/H007_Week0_LFOV.png)
 
-Shared Dice falls from 0.7888 for 3D to 0.6686 for 2D; HD95 worsens from 4.47
-to 9.06 mm. The middle-plane 2D error map has red extension toward the GT
-rectal region, while blue extent misses persist. Whole shared-volume counts
-confirm **191 rectal-invasion voxels for 2D versus five for 3D**; these counts
-are not limited to the displayed slice. This one case supplies 47.75% of all
-2D rectal-invasion voxels. It also touches the shared ROI boundary. This
-failure is retained rather than hidden by the better 2D average.
+H007 shows why the location of false positives matters. The 2D middle-plane
+error map contains a red extension towards the reference rectum, while omissions
+remain at the prostate extents. Counts across the whole shared region confirm
+191 prostate-prediction voxels inside the rectum for 2D, compared with five
+for 3D.
 
+This case alone contributes 47.75% of all 2D rectal-invasion voxels in the test
+group, showing that nearly half of this error is concentrated in one case.
+Its lower Dice, 0.6686 versus 0.7888, and higher HD95, 9.06 versus 4.47 mm,
+also indicate poorer overall agreement. The problem is therefore not merely a
+lower score, but a substantial error at a specific organ interface.
 
-The original detailed 3D-only review remains in [support/how_to_run/case_analysis.md](support/how_to_run/case_analysis.md). The paired review uses fixed cases and does not replace all-scan numerical evaluation.
+The 2D prediction also touches the shared-region boundary, so performance
+beyond that boundary cannot be judged from this evaluation. Within the evaluated
+region, however, the rectal confusion is directly supported by both the image
+and voxel counts. This case shows that better group-average Dice does not
+guarantee fewer local errors for every patient.
 
+## 8. Discussion, limitations and engineering recommendation
 
-## 7. Discussion, limitations and engineering recommendation
+**Discussion**
 
-Both implemented standard models meet their adopted mean-Dice targets. On the
-verified shared grid, 2D improves mean overlap and precision, while 3D retains
-higher pooled recall and much less rectal invasion. These observations do not
-support the claim that 3D must outperform 2D. The 2D model has about 5.5 times
-as many parameters, different normalization and higher native in-plane detail;
-the experiment does not isolate why the ranking differs.
+The 3D U-Net remains a useful full-volume research baseline. Although 2D
+achieved better average overlap and precision, 3D had higher recall and less
+bladder/rectum confusion. The compact 3D network used less inference time and
+GPU memory than the 2D model at FP32, and BF16 reduced both further. These
+advantages support continued investigation, but neither model was consistently
+better: 3D overpredicted total prostate volume, while 2D showed substantial
+rectal confusion in H007.
 
-The mean scan Dice difference of 5.00 percentage points falls to 1.98 points
-under equal patient weighting. There are only six test patients, with correlated
-weekly scans; no confidence interval, statistical superiority test, multiple-seed
-study or external validation is claimed. The five examples are deliberately
-selected diagnostic cases, not a representative random sample. Selected slices
-do not establish absence of errors elsewhere, and no complete connected-component
-or clinical annotation audit was performed. GT-derived inferior/superior extent
-planes are not independent clinical apex/base landmarks. Downsampling and crop
-surfaces also limit boundary interpretation; H007's 2D output touches the ROI edge.
+**Limitations**
 
-Under this resource protocol the compact 3D model is slightly faster and uses
-less allocated memory than 2D at matched FP32. BF16 further reduces measured
-3D cost, but numerical precision and warmup/protocol matter; this should not be
-presented as a universal speed law. Neither timing includes a complete disk-to-
-image workflow, and no training-memory comparison was measured.
+The test group contained only six patients, and the models differed in size,
+normalization and input resolution. Shared-region evaluation made the scoring
+region consistent, but did not remove these differences or isolate the
+contribution of 3D context. Downsampling and cropped boundaries also limit the
+interpretation of boundary distances. Only three cases were analysed, and
+other cases or locations may contain errors not shown here.
 
-For the implemented research workflow, retain the 3D model as the full-volume
-baseline and the 2D model as a useful limited-band comparator. Choosing solely
-by mean Dice would miss H007's rectal confusion; choosing solely by organ
-invasion would overlook 3D's lower precision and excess volume. Both require
-review of low-confidence or boundary-sensitive predictions. No clinical-use
-recommendation follows from this course experiment.
+**Engineering recommendation**
 
-Future validation experiments should prioritize full-resolution or localized
-3D refinement for extent omissions, and balanced negative/adjacent-organ
-examples for the 2D rectal-confusion failure. Capacity/normalization-matched
-experiments and repeated patient splits would clarify the comparison. These
-are proposals, not completed improvements; preserve the current test results
-and develop any new decisions using training/validation data and a new final
-evaluation protocol.
+The next step should focus on the errors that remain in these cases. For the
+upper-end omissions in B037 and L011, local crops or higher-resolution inputs
+could help the model examine the small prostate regions more closely. For
+excess predictions near the bladder and rectum, training could include more
+examples that distinguish the prostate from neighbouring tissues. Meanwhile,
+the 3D model can remain the full-volume baseline, with 2D providing a limited-band
+comparison. Predictions should be checked particularly at the prostate ends
+and organ interfaces. Any changes should be developed using training and
+validation data, without tuning against the current test cases.
 
-## 8. Reproducibility and implementation guide
+## 9. Environment and running instructions
 
-```text
-UNet3D_s4984160/
-├── dataset.py
-├── modules.py
-├── train.py                       Phase 2 training
-├── evaluate.py
-├── predict.py
-├── README.md                      Main report
-└── support/
-    ├── baseline_model.py
-    ├── evaluation_utils.py
-    ├── plot_training_curves.py
-    ├── prepare_comparison.py
-    ├── train_phase1/
-    ├── submit_jobs/
-    ├── check_code/
-    ├── how_to_run/
-    ├── saved_results/
-    │   ├── training_results/
-    │   ├── test_results/
-    │   └── resource_results/
-    ├── compare_results/
-    └── old_code_and_notes/
-```
+### 9.1 Environment and dependencies
 
-The reading order is **Dataset → Modules → Train → Evaluate → Predict**.
-Initial training is invoked as `python -m support.train_phase1.scratch`; model
-normalization is constructed by `support/baseline_model.py`. The independently
-trained 2D implementation is in `../UNet2D_s4984160/`. The cluster used the
-existing `comp3710` account/partition, one GPU and a 1.5-hour limit, without
-extra CPU or RAM requests. Archived source provenance is retained in
-`support/old_code_and_notes/source_snapshots.json`; root paths have since been organized.
+The recorded 3D evaluation environment used the following versions:
 
-| Software | Recorded 3D evaluation version |
+| Software | Version |
 | --- | --- |
 | Python | 3.11.15 |
 | PyTorch | 2.13.0+cu130 |
@@ -495,111 +585,60 @@ extra CPU or RAM requests. Archived source provenance is retained in
 | SciPy | 1.17.1 |
 | Matplotlib | 3.11.2 |
 
-3D frozen weight SHA256:
-`77ecc9f051d5d1213c2e62474d582050fe5b425a08182e3d2becc73540737156`.
+GPU experiments ran on Rangpur with an A100. Repeating training or prediction
+requires access to the course HipMRI data; prediction also requires the selected
+model weights. Data and weights are not included in GitHub. The saved settings
+and patient groups described earlier should be retained when reproducing the
+experiment.
 
-2D epoch-5 frozen weight SHA256:
-`3a666e057827897d294d9df9604ac325617fa874bf541402011537847024174b`.
+### 9.2 Training, evaluation and prediction
 
-Weights and course data remain on the cluster; they are not bundled in Git.
-Original source/configuration, patient manifests, CSV/JSON, hashes and figures
-support offline checking. Re-running inference requires access to those exact
-weights and private course data. Seeds do not guarantee bit-identical output
-across devices or software versions. CPU/synthetic execution checks establish
-implementation behaviour, not real-data segmentation quality.
-
-### 8.1 Running the current layout
-
-Requires Python, PyTorch, NumPy, NiBabel, SciPy and Matplotlib. The original
-evaluation environment versions are recorded in
-[summary.json](support/saved_results/test_results/summary.json). Private course data and
-weights are not included. Dataset default:
-`/home/groups/comp3710/HipMRI_Study_open`.
-
-From this project directory on the configured cluster:
+The sbatch files use the `torch` Conda environment and expect the repository
+under `~/PatternAnalysis-2026`. From the 3D project directory, submit the following
+jobs in order, waiting for each stage to finish before submitting the next:
 
 ```bash
+# Phase 1
 sbatch support/submit_jobs/train_scratch.sbatch
-# After initial training finishes and its last checkpoint exists:
+
+# Phase 2
 sbatch support/submit_jobs/train_refine.sbatch
-# After the selected refinement checkpoint exists:
+
+# Evaluation and prediction figures
 sbatch support/submit_jobs/evaluate.sbatch
 ```
 
-Do not submit the dependent stages concurrently. The Slurm account, partition,
-GPU and 1.5-hour requests are unchanged; only Python entry-point paths changed.
-These examples are for a new run, not an instruction to restart the completed
-experiment. Existing evaluation requires a fresh output directory; see
-[evaluation usage](support/how_to_run/evaluation.md).
+Outputs are saved under `results/`, including trained weights, evaluation
+CSV/JSON files and prediction figures. Repeated runs require fresh output
+directories.
 
-Useful local commands, from this project directory:
-
-```bash
-python -m support.train_phase1.scratch --help
-python train.py --help
-python -m unittest discover -s support/check_code -v
-python -m support.prepare_comparison
-```
-
-### Direct checkpoint prediction example
-
-On a GPU node, from this project directory with the private course data:
+To load trained weights and predict a labelled MRI directly, run the following
+on a GPU node, replacing the example paths with actual files:
 
 ```bash
 python predict.py \
-  --checkpoint results/refine_v2/best_model.pt \
-  --mri /home/groups/comp3710/HipMRI_Study_open/semantic_MRs/B037_Week0_LFOV.nii.gz \
-  --mask /home/groups/comp3710/HipMRI_Study_open/semantic_labels_only/B037_Week0_SEMANTIC.nii.gz \
-  --expected-sha256 77ecc9f051d5d1213c2e62474d582050fe5b425a08182e3d2becc73540737156 \
-  --device cuda --precision bf16 --threads 1 --output-dir results/direct_example
+  --checkpoint /path/to/best_model.pt \
+  --mri /path/to/MRI.nii.gz \
+  --mask /path/to/mask.nii.gz \
+  --device cuda --precision bf16 --threads 1 \
+  --output-dir results/direct_example
 ```
 
-This loads the saved configuration/weights, applies `dataset.py` preprocessing,
-runs inference, prints Dice/HD95 and saves a prediction overlay plus resized
-D,H,W labels and metadata. GT is used for evaluation/visualization, not input
-to the network. A new output directory is required. The original cached-render
-command still works. See [prediction and resource usage](support/how_to_run/resource_profile.md).
+The command prints prostate Dice and HD95 and saves the overlay
+`prediction.png`, predicted labels `prediction_dhw.npy` and metadata
+`summary.json`. The mask is used for evaluation and display, not as model input.
+Instructions for the 2D comparator are provided in its
+[project README](../UNet2D_s4984160/README.md).
 
-Job **717015** verified this direct entry point on B037 Week0: Dice **0.6413**,
-HD95 **14.65 mm**, and all six classes' voxel counts match the archived test.
-This retained failure case shows undercoverage; it does not change the overall
-test Dice of 0.7732. The [direct prediction image and metadata](support/saved_results/resource_results/README.md)
-provide the completed execution evidence.
+## 10. Artificial Intelligence Usage Disclosure
 
-The final checkpoint remains on the cluster at `results/refine_v2/best_model.pt`;
-its SHA256 and original metrics are in
-[the result record](support/saved_results/test_results/README.md). Historical early code is
-under `support/old_code_and_notes/`, not the current training entry point. Additional references:
-[case analysis in Chinese](support/how_to_run/case_analysis.md),
-[comparison protocol](support/how_to_run/comparison_protocol.md), and
-[2D/3D data mapping](support/how_to_run/data_mapping.md).
+ChatGPT and Codex assisted with experimental planning, suggestions for model improvement, organizing experimental data and outputs, and writing and revising data-loading, model and training code. AI also contributed to developing evaluation, prediction, plotting and resource-measurement tools, preparing sbatch files, organizing project directories and paths, and helping polish, translate and revise the README.
 
+With AI assistance, I checked the code and reviewed the results, including MRI–label pairing, dimensions, label ranges, invalid values and the handling of padded regions in 2D data; confirmed that training, validation and test patients did not overlap and that both models used the same patient groups; checked whether the model structure and normalization matched the saved weights; used synthetic data to check metric calculations, empty-mask handling and spatial alignment; and checked code imports, execution entry points, images and document links after reorganizing the directories. I was responsible for reviewing the explanations and results and making the final decisions.
 
-## 9. Artificial Intelligence Usage Disclosure
+I conducted real-data training experiments, independent test evaluation and prediction verification on Rangpur, monitoring training loss and selecting the model by validation prostate Dice before evaluating it on independent test patients. I checked the model weights, patient splits, evaluation settings and original experiment records, and analysed prostate undersegmentation, oversegmentation and bladder/rectum confusion using prediction images and metrics.
 
-ChatGPT and Codex assisted with experimental planning, reviewing and revising
-the student's draft data/model/training code, writing evaluation and prediction
-utilities, debugging, preparing cluster scripts, collecting outputs, checking
-spatial alignment and metrics, and drafting/organizing this report. Codex also
-performed authorized terminal and Git operations. This assistance was
-substantial; the work is not represented as unaided implementation or writing.
-
-A peer's shared discussion was consulted for general 2D workflow ideas. It is
-not the source of the trained checkpoints or reported measurements, and the
-project does not present the peer's implementation or results as its own.
-The independently run project code/configurations and archived cluster outputs
-are the evidence for the results reported here.
-
-Numbers in the tables come from archived real training/test outputs, with
-aggregate recomputation and checkpoint/cohort consistency checks. Literature
-links were checked against the original publications. These checks reduce
-transcription risk but do not constitute an independent expert or clinical
-audit. AI-assisted interpretation is constrained by saved metrics and displayed
-images; no missing experiment, validation-loss curve or clinical endorsement
-has been invented. The student remains responsible for reviewing the report,
-understanding the implementation and confirming the accuracy of this disclosure.
-
-## 10. References
+## 11. References
 
 1. Ronneberger, O., Fischer, P., and Brox, T. (2015). *U-Net: Convolutional
    Networks for Biomedical Image Segmentation*. MICCAI.
@@ -608,16 +647,13 @@ understanding the implementation and confirming the accuracy of this disclosure.
    (2016). *3D U-Net: Learning Dense Volumetric Segmentation from Sparse
    Annotation*. MICCAI. [Original paper](https://arxiv.org/abs/1606.06650).
 3. COMP3710 course materials (2026). *Report specification v2.4* and the supplied
-   HipMRI study MRI/semantic labels and 2D slices. Course-provided data and
-   assignment documentation; no independent public dataset citation or external
-   data license is asserted here.
+   HipMRI study MRI/semantic labels and 2D slices.
 
 ## Conclusion
 
-The completed standard 3D U-Net provides a full-volume baseline with held-out
-prostate Dice 0.7732. The independently trained 2D comparator has higher shared-
-grid mean Dice but greater rectal confusion. Verified spatial alignment,
-patient-level reporting, five retained cases and isolated resource measurements
-make the trade-off visible. The main outcome is a documented, reproducible
-baseline and qualified comparison, with remaining boundary errors and a small
-test cohort explicitly limiting the conclusion.
+This project completed a 3D U-Net baseline with test prostate Dice of **0.7732**
+and an independently trained 2D comparator. Shared-region evaluation showed
+better average overlap for 2D, but higher recall and less bladder/rectum
+confusion for 3D. The compact 3D network and BF16 also reduced inference costs,
+supporting further development focused on the remaining prostate extent
+omissions and organ-interface errors.

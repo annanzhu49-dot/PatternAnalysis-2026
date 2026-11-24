@@ -126,7 +126,7 @@ ablation was performed. Preserve both frozen models and report this trade-off;
 do not tune against these test cases to make either model win.
 
 This paired evaluation kept both models co-resident and did not itself profile
-isolated latency/memory. The subsequent [resource job 717015](../../../../UNet3D_s4984160/support/saved_results/resource_results/README.md)
+isolated latency/memory. The subsequent [resource job 717015](../../../../support/saved_results/resource_results/README.md)
 now supplies separate-model measurements on the same GPU, without changing
 these segmentation scores. The final course report still needs report assembly,
 feasibility review, references and full AI-use disclosure.

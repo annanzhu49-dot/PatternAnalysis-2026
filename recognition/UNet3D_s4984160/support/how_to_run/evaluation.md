@@ -49,4 +49,4 @@ Read the Slurm output/error log and `summary.json` when the job finishes. Do not
 Current code is stored once at the project root. The original remote source
 snapshot names above are historical run provenance; the cluster snapshots were
 not changed. Current local scripts use the canonical code paths. Exact original
-sources can be recovered through `support/old_code_and_notes/source_snapshots.json`.
+sources can be recovered through `support/saved_results/source_snapshots.json`.

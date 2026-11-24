@@ -7,7 +7,7 @@ CPU or memory request. Cluster operations use shared tmux `codex-714278`.
 
 ## Resource definitions
 
-`UNet2D_s4984160/support/profile_inference.py` measures one model at a time on
+`baseline_2d/support/profile_inference.py` measures one model at a time on
 the same GPU, removing the previous model from GPU and clearing cached blocks
 between modes. Inputs are preprocessed and cached on CPU before timing.
 The three rows are 2D strict FP32, 3D strict FP32, and 3D BF16. TF32 is disabled

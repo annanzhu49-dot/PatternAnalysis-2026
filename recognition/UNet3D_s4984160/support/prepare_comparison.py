@@ -14,7 +14,7 @@ import statistics
 ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE = ROOT / 'support/saved_results/test_results'
 OUTPUT = ROOT / 'support/compare_results'
-ARCHIVE_2D = ROOT.parent / 'UNet2D_s4984160/support/saved_results/test_results'
+ARCHIVE_2D = ROOT / 'baseline_2d/support/saved_results/test_results'
 RESOURCE = ROOT / 'support/saved_results/resource_results'
 
 

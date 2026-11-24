@@ -52,7 +52,7 @@ The actual checkpoint remains on the cluster at
 
 Duplicate source folders have been consolidated into canonical root code,
 `support/train_phase1/scratch.py` and root `train.py`. Original submitted sources are
-recoverable through [the provenance manifest](../../old_code_and_notes/source_snapshots.json).
+recoverable through [the provenance manifest](../source_snapshots.json).
 Current Slurm scripts are under `../../scripts/`; their resource requests are
 unchanged. Earlier training code is under `../../history/`.
 

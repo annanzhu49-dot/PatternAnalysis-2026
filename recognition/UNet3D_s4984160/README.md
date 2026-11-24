@@ -1,6 +1,6 @@
 # Standard 3D U-Net for HipMRI Segmentation
 
-COMP3710 · Normal difficulty · Student ID: s4984160 · Updated 30 October 2026
+COMP3710 · Normal difficulty · Student ID: s4984160 · Results submitted 30 October 2026 · Structure and documentation revised after code review
 
 ## 1. Project overview and working principles
 
@@ -42,28 +42,13 @@ the model and selects the highest-scoring class as the predicted label for each
 voxel. Reference labels are used only to evaluate and display the results, not
 as input to the model.
 
-```text
-MRI input
-   ↓
-Encoder
-Convolutions extract features;
-pooling gradually reduces spatial size
-   ↓
-Bottleneck
-Processes features at the smallest spatial size
-   ↓
-Decoder ← Encoder features passed through skip connections
-Upsampling gradually restores spatial size
-and combines features from the encoder
-   ↓
-Output layer
-Produces six class scores for each voxel
-   ↓
-Select the highest-scoring class
-   ↓
-Segmentation map
-Each voxel receives a class label (0–5)
-```
+![3D U-Net structure with feature widths and skip connections](support/how_to_run/unet3d_structure.svg)
+
+The diagram shows the trained network with feature widths of 8, 16, 32 and
+64 channels. Dashed arrows carry encoder features to the matching decoder
+level, where they are concatenated with the upsampled features. Spatial sizes
+refer to a full preprocessed volume; cropped training blocks use the same
+network at smaller spatial sizes.
 
 The encoder, bottleneck, decoder and output layer are defined in `modules.py`.
 `predict.py` selects the highest-scoring class for each voxel and visualizes
@@ -302,7 +287,7 @@ interchangeable scores.
 
 **Training evidence: 2D training and validation curves**
 
-![2D loss and validation Dice](../UNet2D_s4984160/support/saved_results/training_results/training_plot.png)
+![2D loss and validation Dice](baseline_2d/support/saved_results/training_results/training_plot.png)
 
 The figure shows training loss, validation loss and validation prostate Dice
 over 13 epochs. The left panel compares training and validation loss, while the
@@ -486,7 +471,7 @@ and less bladder/rectum confusion.
 
 ### 7.1 B037 Week0: better overlap without recovering the upper extent
 
-![B037 paired predictions](../UNet2D_s4984160/support/saved_results/test_results/figures/B037_Week0_LFOV.png)
+![B037 paired predictions](baseline_2d/support/saved_results/test_results/figures/B037_Week0_LFOV.png)
 
 The main problem in B037 is missing prostate tissue at the upper extent. The
 2D prediction improves overlap in the middle plane, but the reference region
@@ -501,7 +486,7 @@ extent rather than judge coverage from a better-matching central slice.
 
 ### 7.2 L011 Week2: reduced oversegmentation with a remaining omission
 
-![L011 paired predictions](../UNet2D_s4984160/support/saved_results/test_results/figures/L011_Week2_LFOV.png)
+![L011 paired predictions](baseline_2d/support/saved_results/test_results/figures/L011_Week2_LFOV.png)
 
 In L011, the 3D prediction extends beyond the reference prostate, incorrectly
 including surrounding tissue. This is oversegmentation. The 2D middle-plane
@@ -517,7 +502,7 @@ does not mean that all boundaries are correct.
 
 ### 7.3 H007 Week0: concentrated rectal confusion despite better group-average Dice
 
-![H007 paired predictions](../UNet2D_s4984160/support/saved_results/test_results/figures/H007_Week0_LFOV.png)
+![H007 paired predictions](baseline_2d/support/saved_results/test_results/figures/H007_Week0_LFOV.png)
 
 H007 shows why the location of false positives matters. The 2D middle-plane
 error map contains a red extension towards the reference rectum, while omissions
@@ -628,7 +613,7 @@ The command prints prostate Dice and HD95 and saves the overlay
 `prediction.png`, predicted labels `prediction_dhw.npy` and metadata
 `summary.json`. The mask is used for evaluation and display, not as model input.
 Instructions for the 2D comparator are provided in its
-[project README](../UNet2D_s4984160/README.md).
+[project README](baseline_2d/README.md).
 
 ## 10. Artificial Intelligence Usage Disclosure
 

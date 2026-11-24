@@ -10,7 +10,6 @@ Start with the five Python entry points and the [project README](../README.md).
 | `how_to_run/` | Usage, evaluation and alignment instructions |
 | `saved_results/training_results/` | Original training CSV/configuration and curves |
 | `saved_results/test_results/` | Original test metrics and prediction figures |
-| `old_code_and_notes/` | Previous work and historical handoff notes |
 | `saved_results/resource_results/` | Paired resource profiles and direct prediction example |
 | `compare_results/` | Verified model comparison JSON/CSV |
 

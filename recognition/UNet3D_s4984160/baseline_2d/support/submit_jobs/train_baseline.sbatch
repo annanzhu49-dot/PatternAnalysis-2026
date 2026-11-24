@@ -9,7 +9,7 @@
 set -eo pipefail
 source "$HOME/miniconda3/bin/activate"
 conda activate torch
-cd "$HOME/PatternAnalysis-2026/recognition/UNet2D_s4984160"
+cd "$HOME/PatternAnalysis-2026/recognition/UNet3D_s4984160/baseline_2d"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 echo "Job: $SLURM_JOB_ID"
 echo "Start: $(date)"

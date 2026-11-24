@@ -4,7 +4,7 @@
 
 All subsequent cluster operations must be visible in the user's existing
 tmux session `codex-714278`, not an independent SSH shell. Current shared
-directory is `~/PatternAnalysis-2026/recognition/UNet2D_s4984160`.
+directory is `~/PatternAnalysis-2026/recognition/UNet3D_s4984160/baseline_2d`.
 Both sides may type; leave a prompt for the user and avoid simultaneous input.
 If attaching from a terminal with TERM=dumb, use
 `TERM=xterm-256color tmux attach-session -t codex-714278`.
@@ -26,7 +26,7 @@ selected by `mean_scan_prostate_dice`, matching the training history.
 Do not treat the synthetic test output of 0.2 as an experimental score.
 
 Remote directory:
-`~/PatternAnalysis-2026/recognition/UNet2D_s4984160`
+`~/PatternAnalysis-2026/recognition/UNet3D_s4984160/baseline_2d`
 
 Frozen sources: `baseline2d_v1/`; submitted script: `train_baseline_v1.sbatch`
 (local equivalent: `support/submit_jobs/train_baseline.sbatch`). The original shared 3D sources
@@ -50,7 +50,7 @@ does not confirm the held-out test requirement.
 Query from a normal cluster login terminal:
 
 ```bash
-cd ~/PatternAnalysis-2026/recognition/UNet2D_s4984160
+cd ~/PatternAnalysis-2026/recognition/UNet3D_s4984160/baseline_2d
 squeue -j 716367
 tail -n 25 unet2d_716367.out
 cat unet2d_716367.err

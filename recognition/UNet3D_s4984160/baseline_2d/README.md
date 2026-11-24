@@ -10,7 +10,7 @@ reported separately in the [completed result record](support/saved_results/test_
 ## Folder guide
 
 ```text
-UNet2D_s4984160/
+baseline_2d/
 ├── dataset.py
 ├── modules.py
 ├── train.py
@@ -27,7 +27,6 @@ UNet2D_s4984160/
     ├── saved_results/
     │   ├── training_results/
     │   └── test_results/
-    └── old_code_and_notes/
 ```
 
 ## Training
@@ -55,9 +54,9 @@ resource request. No job is submitted automatically.
 
 ```powershell
 # From the repository root; choose the actual local dataset path.
-.\.venv\Scripts\python.exe recognition/UNet2D_s4984160/train.py --data-dir D:/HipMRI --output-dir recognition/UNet2D_s4984160/results/smoke --device cpu --epochs 1 --smoke-steps 2
+.\.venv\Scripts\python.exe recognition/UNet3D_s4984160/baseline_2d/train.py --data-dir D:/HipMRI --output-dir recognition/UNet3D_s4984160/baseline_2d/results/smoke --device cpu --epochs 1 --smoke-steps 2
 # After checking real-data throughput, omit --smoke-steps for full training.
-.\.venv\Scripts\python.exe recognition/UNet2D_s4984160/train.py --data-dir D:/HipMRI --output-dir recognition/UNet2D_s4984160/results/baseline --device cpu
+.\.venv\Scripts\python.exe recognition/UNet3D_s4984160/baseline_2d/train.py --data-dir D:/HipMRI --output-dir recognition/UNet3D_s4984160/baseline_2d/results/baseline --device cpu
 ```
 
 Recorded cluster training curve (13 epochs; best checkpoint at epoch 5):
@@ -92,8 +91,8 @@ was best; eight subsequent epochs did not improve the validation prostate Dice.
 The smoke run and formal training have separate output directories.
 
 The final report and comparison tables are maintained in the
-[3D project README](../UNet3D_s4984160/README.md). Use the fixed
-[comparison protocol](../UNet3D_s4984160/support/how_to_run/comparison_protocol.md) for the completed
+[3D project README](../README.md). Use the fixed
+[comparison protocol](../support/how_to_run/comparison_protocol.md) for the completed
 shared-grid metrics. Native 2D 60-slice scores and aligned 30-plane scores
 have separate tables. Improved 2D U-Net is only an optional empty comparison
 row; it is not implemented or scheduled by this handoff. Do not launch another
@@ -127,7 +126,7 @@ forward-only or **21.75 ms** including transfers, argmax and output copy;
 these are medians across 27 per-case medians, each with three repeats.
 Peak allocated/reserved memory is **0.2710 / 0.3418 GiB**, including resident
 weights. Disk loading, preprocessing, model loading and training are excluded.
-See the [raw records and matched 3D measurements](../UNet3D_s4984160/support/saved_results/resource_results/README.md)
+See the [raw records and matched 3D measurements](../support/saved_results/resource_results/README.md)
 for protocol, limitations and the successful direct 3D prediction example.
 
 ```python
@@ -191,7 +190,7 @@ The original 3D headers use L/P/S axes; the matched planes are coronal. The slic
 
 ## Checks and provenance
 
-Run `python -m unittest discover -s recognition/UNet2D_s4984160/support/check_code -v` from the repository root with NumPy, NiBabel and PyTorch installed. Tests create synthetic NIfTI fixtures; they do not use patient images. Synthetic tests check loading behavior, not full real-data correctness or model performance.
+Run `python -m unittest discover -s recognition/UNet3D_s4984160/baseline_2d/support/check_code -v` from the repository root with NumPy, NiBabel and PyTorch installed. Tests create synthetic NIfTI fixtures; they do not use patient images. Synthetic tests check loading behavior, not full real-data correctness or model performance.
 
 The loader, model and training loop were adapted from the author's submitted drafts, with AI assistance reviewing directory pairing, explicit split handling, normalization/padding, input validation, model width, scan-level metric aggregation, checkpointing and checks. General CE/Adam/early-stopping ideas were also discussed in the author's linked reference conversation; the linked friend's implementation was not used. The author's original attachments were preserved. No friend's implementation, model weights, experimental scores or report text are included. Final project documentation will need the full AI-use disclosure, exact environment versions and measured experimental results.
 
@@ -202,4 +201,4 @@ The shared GT matched for all 27 scans. 2D improves scan-average Dice in 21/27
 cases, but has more rectal invasion (400 versus 21 shared voxels) and does not
 win every patient. Keep the selected checkpoint frozen. See the
 [result and case analysis](support/saved_results/test_results/README.md) and the
-[main comparative report](../UNet3D_s4984160/README.md).
+[main comparative report](../README.md).

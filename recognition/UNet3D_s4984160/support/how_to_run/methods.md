@@ -21,7 +21,7 @@
 | 预测图 | `predict.py` | 使用评价缓存绘制 MRI、GT、预测及 TP/FP/FN，无需第二次推理 |
 | 原始实验记录 | `support/saved_results/test_results/` | 配置、划分、训练历史、测试指标及五张预测图 |
 
-**入口区别：** 整理后的根目录 `train.py` 就是最终继续训练阶段；初始阶段为 `python -m support.train_phase1.scratch`。早期实现移到 `support/old_code_and_notes/early_train.py`。两阶段实际训练逻辑没有修改，原始提交快照通过 `support/old_code_and_notes/source_snapshots.json` 记录的 Git 版本恢复。
+**入口区别：** 整理后的根目录 `train.py` 就是最终继续训练阶段；初始阶段为 `python -m support.train_phase1.scratch`。过时的早期实现已从当前目录移除，可通过 Git 历史查看。两阶段实际训练逻辑没有修改，原始提交快照通过 `support/saved_results/source_snapshots.json` 记录的 Git 版本恢复。
 
 ## 3. 数据与预处理：`dataset.py`
 
